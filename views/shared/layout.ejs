@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <!-- 引入公共头部 -->
+  <%- include('./head'); %>
+
+  <body>
+    <div id="app" class="page-wrap">
+      <%- include('./nav'); %>
+
+      <main class="flex flex-col items-center justify-center gap-6 pt-24">
+        <%- include('./svglogo'); %>
+
+        <section class="title-block">
+          <h1 class="text-light-onSurface dark:text-dark-onSurface font-serif">
+            <%= maintitle %>
+          </h1>
+          <p
+            class="text-light-onSurfaceVariant dark:text-dark-onSurfaceVariant"
+          >
+            <%= secondtitle %>
+          </p>
+        </section>
+        <%- body %>
+      </main>
+    </div>
+
+    <%- include('footer') %>
+  </body>
+</html>

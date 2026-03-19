@@ -1,0 +1,33 @@
+<nav
+  class="px-4 py-4 bg-transparent flex gap-4 h-24 w-full items-center lg:px-16"
+>
+  <a class="flex gap-2 h-8 items-center lg:gap-6 text-decoration-none" href="#">
+    
+    <%- include('./svgnav'); %>
+
+    <span class="line-height-snug font-serif m-0 flex flex-col">
+      <span
+        class="text-lg color-light-primary font-bold dark:color-dark-primary"
+        >AuthBridge</span>
+      <span class="text-sm color-light-tertiary dark:color-dark-tertiary"
+        >认证代理</span>
+    </span>
+  </a>
+  <div class="flex-grow-1"></div>
+
+  <!-- 首页链接 -->
+  <a
+    href="/"
+    class="font-serif font-size-xl <%= isHomePage ? 'text-light-primary dark:text-dark-primary font-bold' : 'text-light-onSurface dark:text-dark-onSurface font-medium' %>"
+  >
+    首页
+  </a>
+
+  <!-- 关于链接 -->
+  <a
+    href="/about"
+    class="font-serif font-size-xl ml-4 <%= isAboutPage ? 'text-light-primary dark:text-dark-onSurfaceVariant font-bold' : 'text-light-onSurface dark:text-dark-onSurface font-medium' %>"
+  >
+    关于
+  </a>
+</nav>

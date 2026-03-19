@@ -1,0 +1,42 @@
+{
+  "name": "authbridge",
+  "version": "1.0.0",
+  "description": "极简 Express 应用，对接 CAS 6.6.14 并生成各种JWT",
+  "main": "server.js",
+  "scripts": {
+    "build:css": "tailwindcss -i ./public/css/tailwind.css -o ./public/css/styles.css --minify",
+    "watch:css": "tailwindcss -i ./public/css/tailwind.css -o ./public/css/styles.css --watch",
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "cas",
+    "jwt",
+    "express",
+    "sso"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "connect-cas2": "^1.2.5",
+    "dotenv": "^16.0.0",
+    "ejs": "^5.0.1",
+    "express": "^4.18.2",
+    "express-ejs-layouts": "^2.5.1",
+    "express-session": "^1.17.3",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.27",
+    "nodemon": "^3.0.1",
+    "postcss": "^8.5.8",
+    "prettier": "^3.8.1",
+    "prettier-plugin-ejs": "^1.0.3",
+    "tailwindcss": "^3.4.19"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=7.0.0"
+  }
+}

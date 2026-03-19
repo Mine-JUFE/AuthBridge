@@ -1,0 +1,180 @@
+<% const pagedata = { maintitle: '关于', secondtitle: '关于 AuthBridge 的介绍',
+body: `
+<div class="mx-auto w-11/12 sm:w-4/5 md:w-3/5 text-center">
+  <!-- 简介段落 -->
+  <p class="mb-8 text-lg leading-relaxed text-gray-700">
+    AuthBridge 是一个极简的 Express 应用，旨在对接 CAS 并生成各种
+    JWT，以满足我们开发团队下其他不在白名单的应用的认证需求。
+  </p>
+
+  <!-- 功能特点标题 -->
+  <h2 class="text-3xl font-bold mb-8 text-gray-900">功能特点</h2>
+
+  <!-- 功能特点说明 -->
+  <div class="space-y-6 mb-10 text-left">
+    <div class="space-y-6 mb-10 text-left">
+      <p class="text-gray-700 leading-relaxed">
+        目前对接<strong>江西财经大学 CAS 系统</strong
+        >，支持<strong>单点登录</strong>和<strong>JWT 令牌生成</strong>。通过
+        JWT
+        令牌可以避免非白名单直接登录江西财经大学的认证系统，但同时也能获得一定量的认证能力。
+      </p>
+
+      <p class="text-gray-700 leading-relaxed">
+        为了避免后端应用直接获取到<strong>学号、姓名等敏感数据</strong>，并且保证本应用是<strong>无状态的</strong>，JWT
+        令牌中仅包含学号经过复杂单向哈希计算后的字符串和一个过期时间戳。后端应用可以通过验证这个令牌的<strong>合法性</strong>来判断用户是否已经登录，并且可以通过<strong>过期时间</strong>来控制令牌的有效期。
+      </p>
+
+      <p class="text-gray-700 leading-relaxed">
+        具体流程为：CAS 登录后，本应用拿到有效 Token
+        后获取用户<strong>学号</strong>。学号附加上一串仅保存在服务器的字符串，再进行诸如<strong
+          >bcrypt 等复杂单向哈希</strong
+        >或<strong>ECC 等非对称加密</strong
+        >计算，得到一个字符串。这个字符串和<strong>过期时间戳</strong>一起生成<strong
+          >JWT 令牌</strong
+        >返回给前端。
+      </p>
+
+      <p class="text-gray-700 leading-relaxed">
+        根据后端的需求不同，加密方式是<strong>可选的</strong>。本应用仅授权给可信业务方，对于无需解密的场景，我们会<strong>强制</strong>后端应用使用单向哈希后的字符串进行认证，以保护用户的隐私安全。如果后端应用需要可解密的学号，我们将在醒目位置标注<strong>风险提示</strong>。
+      </p>
+
+      <p class="text-gray-700 leading-relaxed">
+        我们将<strong>严禁明文学号的流出</strong>。对于需要可解密学号的后端应用，我们会要求其必须使用<strong
+          >HTTPS 协议</strong
+        >来保护数据传输安全，并且定期审计这些后端应用的<strong>安全措施</strong>，确保用户数据安全。同时，我们也会提供<strong>安全建议和最佳实践</strong>，帮助后端应用更好地保护用户数据。
+      </p>
+
+      <p class="text-gray-700 leading-relaxed">
+        <strong>CAS 可以保证我们全程无法获取用户的密码等敏感信息</strong>，而
+        JWT
+        令牌中也不包含任何敏感信息，因此整个认证流程是安全的。同时，我们也会<strong>定期审计和更新安全措施</strong>，以应对新的安全威胁。
+      </p>
+    </div>
+  </div>
+
+  <!-- 项目开发者标题 -->
+  <h2 class="text-3xl font-bold mb-8 text-gray-900">项目团队</h2>
+
+  <!-- 团队与个人信息 - 简约风格 -->
+  <div class="space-y-8 text-left mb-10 text-center">
+    <!-- 团队介绍 -->
+    <div>
+      <h3 class="text-xl font-semibold mb-2 text-gray-800">开发团队</h3>
+      <p class="text-gray-700 mb-3">
+        Mine-JUFE 团队 - 项目发起方与主要开发团队
+      </p>
+      <div class="text-gray-600 space-x-4">
+        <a
+          href="https://github.com/Mine-JUFE"
+          target="_blank"
+          class="text-blue-600 hover:text-blue-800 hover:underline"
+          style="
+            color: color-mix(
+              in oklab,
+              var(--colors-light-primary) var(--un-text-opacity),
+              transparent
+            );
+          "
+        >
+          GitHub
+        </a>
+        <span class="text-gray-400">|</span>
+        <a
+          href="https://www.minejufe.cn"
+          target="_blank"
+          class="text-blue-600 hover:text-blue-800 hover:underline"
+          style="
+            color: color-mix(
+              in oklab,
+              var(--colors-light-primary) var(--un-text-opacity),
+              transparent
+            );
+          "
+        >
+          官网
+        </a>
+      </div>
+    </div>
+
+    <!-- 个人开发者 -->
+    <div>
+      <h3 class="text-xl font-semibold mb-2 text-gray-800">核心开发者</h3>
+      <p class="text-gray-700 mb-3">
+        Tobby_000 - Mine-JUFE 团队成员，负责架构设计与核心功能开发
+      </p>
+      <div class="text-gray-600 space-x-4">
+        <a
+          href="https://github.com/Tobby-000"
+          target="_blank"
+          class="text-blue-600 hover:text-blue-800 hover:underline"
+          style="
+            color: color-mix(
+              in oklab,
+              var(--colors-light-primary) var(--un-text-opacity),
+              transparent
+            );
+          "
+        >
+          GitHub
+        </a>
+        <span class="text-gray-400">|</span>
+        <a
+          href="https://www.komonmc.cn"
+          target="_blank"
+          class="text-blue-600 hover:text-blue-800 hover:underline"
+          style="
+            color: color-mix(
+              in oklab,
+              var(--colors-light-primary) var(--un-text-opacity),
+              transparent
+            );
+          "
+        >
+          个人博客
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 项目信息 -->
+  <div class="space-y-6 text-left mb-10 text-center">
+    <!-- 运维信息 -->
+    <div>
+      <h3 class="text-xl font-semibold mb-2 text-gray-800">运维信息</h3>
+      <p class="text-gray-700">运维方：Mine-JUFE 团队</p>
+      <p class="text-gray-700">部署位置：江西财经大学校内服务器</p>
+    </div>
+
+    <!-- 项目地址 -->
+    <div>
+      <h3 class="text-xl font-semibold mb-2 text-gray-800">项目地址</h3>
+      <p class="text-gray-700">
+        项目地址：
+        <a
+          href="https://github.com/Mine-JUFE/AuthBridge"
+          target="_blank"
+          class="text-blue-600 hover:text-blue-800 hover:underline"
+          style="
+            color: color-mix(
+              in oklab,
+              var(--colors-light-primary) var(--un-text-opacity),
+              transparent
+            );
+          "
+        >
+          github.com/Mine-JUFE/AuthBridge
+        </a>
+      </p>
+    </div>
+  </div>
+
+  <!-- 联系信息 -->
+  <div class="pt-6 border-t border-gray-200">
+    <p class="text-gray-600">
+      如果您对 AuthBridge 有任何建议或意见，欢迎通过上述联系方式与我们联系！
+    </p>
+  </div>
+</div>
+` }; %>
+<%- include('./shared/layout',pagedata) %>

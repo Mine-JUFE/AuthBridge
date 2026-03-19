@@ -1,0 +1,111 @@
+@media (prefers-reduced-motion: no-preference) {
+  :root {
+    --vt-duration-short3: 0.15s;
+    --vt-duration-short4: 0.2s;
+    --vt-duration-medium2: 0.3s;
+    --vt-duration-medium3: 0.35s;
+    --vt-duration-old-exit: 0.14s;
+    --vt-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+    --vt-easing-standard-decelerate: cubic-bezier(0, 0, 0, 1);
+    --vt-easing-standard-accelerate: cubic-bezier(0.3, 0, 1, 1);
+    --vt-easing-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --vt-easing-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+  }
+  .vt-scope,
+  .vt-animatable {
+    contain: paint;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+  ::view-transition-group(page-content) {
+    animation: none;
+  }
+  ::view-transition-old(page-content) {
+    animation: vt-page-out var(--vt-duration-old-exit)
+      var(--vt-easing-emphasized-accelerate) both;
+    animation-delay: 0ms;
+    z-index: 2;
+  }
+  ::view-transition-new(page-content) {
+    animation: vt-page-in var(--vt-duration-medium2)
+      var(--vt-easing-emphasized-decelerate) both;
+    animation-delay: 0ms;
+    z-index: 1;
+  }
+  ::view-transition-old(*) {
+    animation: vt-component-out var(--vt-duration-old-exit)
+      var(--vt-easing-emphasized-accelerate) both;
+  }
+  ::view-transition-new(*) {
+    animation: vt-component-in var(--vt-duration-medium2)
+      var(--vt-easing-standard-decelerate) both;
+  }
+  .vt-reveal-init {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+    will-change: opacity, transform;
+  }
+  .vt-reveal-in {
+    animation: vt-reveal-in var(--vt-duration-medium2)
+      var(--vt-easing-emphasized-decelerate) both;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vt-reveal-init {
+    opacity: 1;
+    transform: none;
+  }
+  .vt-reveal-in {
+    animation: none;
+  }
+}
+@keyframes vt-page-in {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes vt-page-out {
+  0% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vt-component-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes vt-component-out {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.995);
+  }
+}
+@keyframes vt-reveal-in {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
