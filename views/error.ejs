@@ -1,0 +1,22 @@
+<%
+const pagedata = {
+  maintitle: title || '系统错误',
+  secondtitle: message || '请求处理失败，请稍后重试',
+  body: `
+<a
+  href="/"
+  class="inline-block px-6 py-3 text-white rounded-lg hover:opacity-90 transition duration-300"
+  style="
+    background-color: color-mix(
+      in oklab,
+      var(--colors-light-primary) var(--un-text-opacity),
+      transparent
+    );
+  "
+>
+  返回首页
+</a>
+`
+};
+%>
+<%- include('./shared/layout', pagedata) %>

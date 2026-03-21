@@ -1,0 +1,225 @@
+
+<style>
+    /* 令牌滚动容器 - 紧凑布局+可拖动复制 */
+    .token-container {
+        position: relative;
+        width: 100%;
+        max-width: 100%;
+        min-height: 60px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 8px; /* 文本框和按钮间距 */
+    }
+
+    .token-scroll {
+        flex: 1; /* 文本框占满剩余宽度 */
+        height: 100%;
+        padding: 8px 12px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #333;
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        overflow-x: auto;
+        white-space: nowrap;
+        cursor: text;
+        /* 强制显示滚动条 */
+        scrollbar-width: thin;
+        scrollbar-color: var(--colors-light-primary) #e9ecef;
+    }
+
+    /* 自定义滚动条 - 紧凑样式 */
+    .token-scroll::-webkit-scrollbar {
+        height: 6px;
+    }
+    .token-scroll::-webkit-scrollbar-track {
+        background: #e9ecef;
+        border-radius: 3px;
+    }
+    .token-scroll::-webkit-scrollbar-thumb {
+        background: var(--colors-light-primary);
+        border-radius: 3px;
+    }
+    .token-scroll::-webkit-scrollbar-thumb:hover {
+        background: color-mix(in oklab, var(--colors-light-primary) 80%, black);
+    }
+
+    /* 高对比度复制按钮（固定宽度，避免变形） */
+    .copy-btn {
+        flex-shrink: 0; /* 按钮不被压缩 */
+        width: 80px; /* 固定宽度，防止内容变化导致变形 */
+        padding: 8px 12px;
+        background-color: var(--colors-light-primary);
+        color: white !important;
+        border: none;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center; /* 文字居中，保持宽度稳定 */
+    }
+    .copy-btn:hover {
+        background-color: color-mix(in oklab, var(--colors-light-primary) 90%, black);
+        transform: translateY(-1px);
+    }
+    .copy-btn.success {
+        background-color: #00b42a !important;
+    }
+    .copy-btn.error {
+        background-color: #f53f3f !important;
+    }
+
+    /* 紧凑卡片布局 */
+    .token-card {
+        max-width: 100%;
+        padding: 16px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid #e9ecef;
+    }
+
+    /* 标题样式 - 无亮蓝色logo */
+    .token-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+        margin: 0 0 12px 0;
+        padding: 0;
+        text-align: center; /* 标题居中 */
+    }
+</style>
+
+<!-- 紧凑布局容器 - 不占满屏幕 -->
+<div class="mx-auto w-11/12 sm:w-4/5 md:w-3/5">
+<div class="token-card">
+    <h2 class="token-title"><span style="color: red">注意：</span>本令牌为AES加密</h2>
+    <h2 class="token-title">后端应用可以解密您的学号</h2>
+    <!-- 令牌容器 + 外部复制按钮 -->
+    <div class="token-container">
+        <div id="jwt-token" class="token-scroll" spellcheck="false">
+            <%- token || '' %>
+        </div>
+
+        <!-- 复制按钮：文本框右侧外部 -->
+        <button id="copy-btn" class="copy-btn">
+            复制令牌
+        </button>
+    </div>
+
+    <!-- 空状态提示 -->
+    <div id="empty-state" class="mt-4 text-center py-4 text-gray-500 hidden">
+        <p class="text-sm">暂无可用令牌</p>
+    </div>
+</div>
+</div>
+
+<script>
+    (function() {
+        const tokenEl = document.getElementById('jwt-token');
+        const copyBtn = document.getElementById('copy-btn');
+        const emptyState = document.getElementById('empty-state');
+        const token = '<%- token || '' %>'.trim();
+
+        // 空状态处理
+        if (!token || token === 'undefined') {
+            tokenEl.style.display = 'none';
+            copyBtn.style.display = 'none';
+            emptyState.classList.remove('hidden');
+            return;
+        }
+
+        // ========== 核心：可拖动选择复制 ==========
+        let isDragging = false;
+        let startX = 0;
+        let scrollLeft = 0;
+
+        // 鼠标拖动滚动（兼容文本选择）
+        tokenEl.addEventListener('mousedown', function(e) {
+            // 只有点击空白处才触发拖动，选中文本时不触发
+            if (window.getSelection().toString() === '') {
+                isDragging = true;
+                startX = e.pageX - tokenEl.offsetLeft;
+                scrollLeft = tokenEl.scrollLeft;
+                tokenEl.style.cursor = 'grabbing';
+                e.preventDefault(); // 防止文本选中
+            }
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            const x = e.pageX - tokenEl.offsetLeft;
+            const walk = (x - startX) * 1.2; // 拖动速度
+            tokenEl.scrollLeft = scrollLeft - walk;
+        });
+
+        document.addEventListener('mouseup', function() {
+            isDragging = false;
+            tokenEl.style.cursor = 'text';
+        });
+
+        // 移动端触摸拖动
+        tokenEl.addEventListener('touchstart', function(e) {
+            isDragging = true;
+            startX = e.touches[0].pageX - tokenEl.offsetLeft;
+            scrollLeft = tokenEl.scrollLeft;
+            e.preventDefault();
+        });
+
+        document.addEventListener('touchmove', function(e) {
+            if (!isDragging) return;
+            const x = e.touches[0].pageX - tokenEl.offsetLeft;
+            const walk = (x - startX) * 1.2;
+            tokenEl.scrollLeft = scrollLeft - walk;
+        });
+
+        document.addEventListener('touchend', function() {
+            isDragging = false;
+        });
+
+        // ========== 高对比度复制按钮 ==========
+        copyBtn.addEventListener('click', async function() {
+            try {
+                await navigator.clipboard.writeText(token);
+                // 复制成功：仅改文字为「已复制」，移除对勾，保持按钮宽度不变
+                copyBtn.textContent = '已复制';
+                copyBtn.classList.add('success');
+
+                setTimeout(() => {
+                    copyBtn.textContent = '复制令牌';
+                    copyBtn.classList.remove('success');
+                }, 2000);
+            } catch (err) {
+                // 复制失败：仅改文字为「手动复制」，保持按钮宽度不变
+                copyBtn.textContent = '手动复制';
+                copyBtn.classList.add('error');
+
+                // 自动选中全部文本
+                const range = document.createRange();
+                range.selectNodeContents(tokenEl);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+
+                setTimeout(() => {
+                    copyBtn.textContent = '复制令牌';
+                    copyBtn.classList.remove('error');
+                }, 2000);
+            }
+        });
+
+        // 双击全选
+        tokenEl.addEventListener('dblclick', function() {
+            const range = document.createRange();
+            range.selectNodeContents(tokenEl);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+        });
+    })();
+</script>

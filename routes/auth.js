@@ -47,6 +47,22 @@ function resolvePostLoginRedirect(req) {
   return null;
 }
 
+function renderAuthErrorAndClearSession(req, res, status, title, message) {
+  casService.clearSession(req);
+  res.clearCookie(config.session.name);
+
+  if (!req.session || typeof req.session.destroy !== 'function') {
+    return res.status(status).render('error', { title, message });
+  }
+
+  return req.session.destroy((err) => {
+    if (err) {
+      console.error('认证失败时销毁session失败:', err);
+    }
+    return res.status(status).render('error', { title, message });
+  });
+}
+
 async function handleSloNotification(req, res) {
   const logoutRequest = req.body && req.body.logoutRequest;
   if (!logoutRequest) {
@@ -139,10 +155,13 @@ const casServiceValidateHandler = async (req, res) => {
     console.log(`🔁 CAS验证回调 - State: ${state || '无'}`);
     
     if (!ticket) {
-      return res.status(400).render('error', {
-        title: '参数错误',
-        message: '缺少 ticket 参数，请重新登录'
-      });
+      return renderAuthErrorAndClearSession(
+        req,
+        res,
+        400,
+        '参数错误',
+        '缺少 ticket 参数，请重新登录'
+      );
     }
 
     // CAS 的 ST 是一次性的；若用户刷新带 ticket 的回调页，直接复用已登录会话
@@ -156,10 +175,13 @@ const casServiceValidateHandler = async (req, res) => {
         const message = validation.status === 403
           ? '该票据已失效或已被使用，请重新发起登录。'
           : validation.message;
-        return res.status(validation.status === 403 ? 401 : validation.status).render('error', {
-          title: '认证失败',
+        return renderAuthErrorAndClearSession(
+          req,
+          res,
+          validation.status === 403 ? 401 : validation.status,
+          '认证失败',
           message
-        });
+        );
       }
 
       req.session.cas = {
@@ -176,19 +198,25 @@ const casServiceValidateHandler = async (req, res) => {
         queryState: state,
         sessionState: expectedState
       });
-      return res.status(400).render('error', {
-        title: '会话过期',
-        message: '登录会话已过期，请重新登录'
-      });
+      return renderAuthErrorAndClearSession(
+        req,
+        res,
+        400,
+        '会话过期',
+        '登录会话已过期，请重新登录'
+      );
     }
 
     // 从CAS获取用户信息
     const studentId = casService.getStudentId(req);
     if (!studentId) {
-      return res.status(401).render('error', {
-        title: '认证失败',
-        message: 'CAS认证失败，无法获取用户信息'
-      });
+      return renderAuthErrorAndClearSession(
+        req,
+        res,
+        401,
+        '认证失败',
+        'CAS认证失败，无法获取用户信息'
+      );
     }
 
     // 清除state，防止重用
@@ -265,10 +293,13 @@ const casServiceValidateHandler = async (req, res) => {
     
   } catch (error) {
     console.error('CAS回调处理错误:', error);
-    res.status(500).render('error', {
-      title: '系统错误',
-      message: error.message || '处理认证时发生错误'
-    });
+    return renderAuthErrorAndClearSession(
+      req,
+      res,
+      500,
+      '系统错误',
+      error.message || '处理认证时发生错误'
+    );
   }
 };
 

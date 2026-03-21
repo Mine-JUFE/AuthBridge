@@ -29,7 +29,7 @@ body: `
         具体流程为：CAS 登录后，本应用拿到有效 Token
         后获取用户<strong>学号</strong>。学号附加上一串仅保存在服务器的字符串，再进行诸如<strong
           >bcrypt 等复杂单向哈希</strong
-        >或<strong>ECC 等非对称加密</strong
+        >或<strong>AES 等常规对称加密</strong
         >计算，得到一个字符串。这个字符串和<strong>过期时间戳</strong>一起生成<strong
           >JWT 令牌</strong
         >返回给前端。
@@ -44,15 +44,46 @@ body: `
           >HTTPS 协议</strong
         >来保护数据传输安全，并且定期审计这些后端应用的<strong>安全措施</strong>，确保用户数据安全。同时，我们也会提供<strong>安全建议和最佳实践</strong>，帮助后端应用更好地保护用户数据。
       </p>
-
       <p class="text-gray-700 leading-relaxed">
-        <strong>CAS 可以保证我们全程无法获取用户的密码等敏感信息</strong>，而
+        截止到目前，我们对称加密JWT仅仅允许用户<strong>手动复制，手动授权，不可以直接回调</strong>。
+      </p>
+      <p class="text-gray-700 leading-relaxed">
+        <strong>CAS的设计 可以保证我们全程无法获取用户的密码等敏感信息</strong>，而
         JWT
         令牌中也不包含任何敏感信息，因此整个认证流程是安全的。同时，我们也会<strong>定期审计和更新安全措施</strong>，以应对新的安全威胁。
       </p>
     </div>
   </div>
-
+  <h2 class="text-3xl font-bold mb-8 text-gray-900">名词介绍</h2>
+  <div class="space-y-6 mb-10 text-left">
+    <div class="space-y-6 mb-10 text-left">
+        <p class="text-gray-700 leading-relaxed">
+            CAS（Central Authentication Service）：是一套<strong>单点登录（SSO）标准方案</strong>，
+            核心作用是让用户<strong>一次登录、多系统通行</strong>。用户只需在统一的CAS认证中心完成身份校验，
+            后续访问其他接入CAS的应用时，无需重复输入账号密码；各应用<strong>不直接存储用户密码</strong>，而是通过<strong>票据（Ticket）</strong>向认证中心验证登录状态，
+            既提升使用体验，又能统一管控用户身份与权限，实现多系统间<strong>安全、统一的身份认证</strong>。
+        </p>
+        <p class="text-gray-700 leading-relaxed">
+            JWT（JSON Web Token）：是一种<strong>轻量级的身份认证令牌</strong>，以JSON格式封装用户身份信息，通过数字签名保证信息不被篡改。
+            它无需后端存储会话数据，仅通过令牌本身即可完成身份验证，实现应用的<strong>无状态化</strong>。
+            JWT由头部（算法与令牌类型）、载荷（用户非敏感信息/过期时间等）、签名（防止数据篡改）三部分组成，
+            后端通过验证签名的<strong>有效性</strong>和载荷中的<strong>过期时间</strong>，就能快速判断用户身份合法性与令牌有效期。
+        </p>
+        <p class="text-gray-700 leading-relaxed">
+            单向慢哈希：是在<strong>单向哈希算法</strong>基础上增加计算耗时的加密方式，
+            它不仅具备“只能正向计算、无法逆向还原”的单向性，还通过多次迭代、增加计算复杂度等方式刻意放慢哈希运算速度。
+            这种设计既能避免学号等敏感数据被逆向破解，又能大幅提升暴力破解的成本——即使攻击者获取到哈希结果，
+            也难以在短时间内通过枚举方式还原原始数据，从而为用户敏感信息提供<strong>更高等级的安全防护</strong>。
+        </p>
+        <p class="text-gray-700 leading-relaxed">
+            AES（高级加密标准）：是一种<strong>对称加密算法</strong>，加密与解密使用同一把密钥，
+            具备加密速度快、安全性高的特点。与单向哈希不同，AES是可逆的——只要持有合法密钥，
+            就能将加密后的密文还原为原始明文。在应用中，可通过AES对学号、姓名等敏感数据进行加密存储/传输，
+            只有掌握密钥的后端服务才能解密获取原始信息，既避免敏感数据明文暴露，又能在需要时恢复数据，
+            是平衡<strong>数据安全</strong>与<strong>业务可用性</strong>的常用加密方式。
+        </p>
+    </div>
+  </div>
   <!-- 项目开发者标题 -->
   <h2 class="text-3xl font-bold mb-8 text-gray-900">项目团队</h2>
 
