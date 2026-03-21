@@ -1,11 +1,19 @@
 {
   "name": "authbridge",
   "version": "1.0.0",
-  "description": "极简 Express 应用，对接 CAS 6.6.14 并生成各种JWT",
+  "description": "极简 Express 应用，对接 CAS 并生成各种JWT",
   "main": "server.js",
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  ],
   "scripts": {
-    "build:css": "tailwindcss -i ./public/css/tailwind.css -o ./public/css/styles.css --minify",
-    "watch:css": "tailwindcss -i ./public/css/tailwind.css -o ./public/css/styles.css --watch",
+    "build:css": "tailwindcss -i ./public/css/input.css -o ./public/css/tailwind.css --minify",
+    "watch:css": "tailwindcss -i ./public/css/input.css -o ./public/css/tailwind.css --watch",
+    "generate:rsa": "node scripts/generate_rsa_keypair.js",
+    "generate:aes": "node scripts/generate_aes_keys.js",
     "start": "node server.js",
     "dev": "node --watch server.js"
   },

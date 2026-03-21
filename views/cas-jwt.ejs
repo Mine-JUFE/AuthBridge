@@ -1,0 +1,12 @@
+
+
+<%
+const pagedata = {
+  maintitle: title,
+  secondtitle: '您的学号为' + studentId,
+  // 正确写法：先定义变量，再通过 EJS 包含语法引入子模板（不在字符串内写 include）
+  body: include('./pages/jwt_page.ejs', { token: token })
+};
+%>
+
+<%- include('./shared/layout', pagedata) %>

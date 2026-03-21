@@ -14,7 +14,9 @@ app.listen(PORT, () => {
                             Author: Tobby_000
 -------------------------------------------------------------------------------
 AuthBridge 已启动
-地址: http://localhost:${PORT}
+地址: ${config.appUrl}
+本地端口: ${PORT}
+环境: ${config.env}
 CAS 服务: ${config.cas.baseUrl}
 时间: ${new Date().toLocaleString()}
 -------------------------------------------------------------------------------

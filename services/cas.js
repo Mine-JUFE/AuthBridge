@@ -1,33 +1,267 @@
-// services/cas-connect.js
-const CAS = require("connect-cas2");
-const config = require("../config");
+// services/cas.js
+const CAS = require('connect-cas2');
+const axios = require('axios');
+const { parseStringPromise, processors } = require('xml2js');
+const config = require('../config');
+
+const { stripPrefix } = processors;
 
 // 初始化CAS客户端
-const casClient = new CAS(config.casClient);
+const casClient = new CAS({
+  servicePrefix: config.cas.serviceUrl,
+  serverPath: config.cas.baseUrl,
+  ignore: config.casClient.ignore || [],
+  match: config.casClient.match || [],
+  paths: config.casClient.paths,
+  redirect: config.casClient.redirect,
+  gateway: config.casClient.gateway,
+  renew: config.casClient.renew,
+  slo: config.casClient.slo,
+  cache: config.casClient.cache,
+  fromAjax: config.casClient.fromAjax,
+  restletIntegration: null
+});
 
 // 扩展CAS客户端的功能
 class CASConnectService {
   constructor() {
     this.client = casClient;
-    console.log("CAS客户端初始化完成:", {
+    this.ticketSessionMap = new Map();
+    console.log('CAS客户端初始化完成:', {
       baseUrl: config.cas.baseUrl,
       serviceUrl: config.cas.serviceUrl,
-      version: config.cas.version,
+      version: config.cas.version
     });
+  }
+
+  registerTicketSession(ticket, sessionId) {
+    if (!ticket || !sessionId) {
+      return;
+    }
+    this.ticketSessionMap.set(String(ticket), String(sessionId));
+  }
+
+  unregisterTicketSession(ticket) {
+    if (!ticket) {
+      return;
+    }
+    this.ticketSessionMap.delete(String(ticket));
+  }
+
+  consumeSessionIdByTicket(ticket) {
+    if (!ticket) {
+      return null;
+    }
+
+    const key = String(ticket);
+    const sessionId = this.ticketSessionMap.get(key) || null;
+    this.ticketSessionMap.delete(key);
+    return sessionId;
+  }
+
+  async extractSessionIndexFromLogoutRequest(logoutRequestXml) {
+    if (!logoutRequestXml || typeof logoutRequestXml !== 'string') {
+      return null;
+    }
+
+    try {
+      const parsed = await parseStringPromise(logoutRequestXml, {
+        explicitArray: false,
+        tagNameProcessors: [stripPrefix]
+      });
+
+      const root = parsed && (parsed.LogoutRequest || parsed.logoutRequest || parsed);
+      if (!root) {
+        return null;
+      }
+
+      const sessionIndex = root.SessionIndex;
+      if (!sessionIndex) {
+        return null;
+      }
+
+      if (typeof sessionIndex === 'string') {
+        return sessionIndex;
+      }
+
+      if (sessionIndex && typeof sessionIndex._ === 'string') {
+        return sessionIndex._;
+      }
+
+      return null;
+    } catch (error) {
+      console.warn('解析CAS logoutRequest失败:', error.message);
+      return null;
+    }
+  }
+
+  async handleBackChannelLogout(logoutRequestXml, sessionStore) {
+    const sessionIndex = await this.extractSessionIndexFromLogoutRequest(logoutRequestXml);
+    if (!sessionIndex) {
+      return {
+        ok: false,
+        reason: 'missing-session-index'
+      };
+    }
+
+    const sessionId = this.consumeSessionIdByTicket(sessionIndex);
+    if (!sessionId) {
+      return {
+        ok: true,
+        sessionIndex,
+        destroyed: false,
+        reason: 'session-not-found'
+      };
+    }
+
+    if (!sessionStore || typeof sessionStore.destroy !== 'function') {
+      return {
+        ok: false,
+        sessionIndex,
+        destroyed: false,
+        reason: 'invalid-session-store'
+      };
+    }
+
+    return new Promise((resolve) => {
+      sessionStore.destroy(sessionId, (error) => {
+        if (error) {
+          resolve({
+            ok: false,
+            sessionIndex,
+            destroyed: false,
+            reason: 'destroy-failed',
+            error: error.message
+          });
+          return;
+        }
+
+        resolve({
+          ok: true,
+          sessionIndex,
+          destroyed: true
+        });
+      });
+    });
+  }
+
+  /**
+   * 从对象中按点路径读取值，如 cas.user
+   */
+  getByPath(obj, dotPath) {
+    if (!obj || !dotPath || typeof dotPath !== 'string') {
+      return null;
+    }
+
+    return dotPath.split('.').reduce((acc, key) => {
+      if (acc && Object.prototype.hasOwnProperty.call(acc, key)) {
+        return acc[key];
+      }
+      return null;
+    }, obj);
   }
 
   /**
    * 获取CAS登录中间件
    */
   getLoginMiddleware() {
-    return this.client.login();
+    return (req, res) => {
+      const loginUrl = this.getLoginUrl();
+      return res.redirect(loginUrl);
+    };
   }
 
   /**
    * 获取CAS验证中间件
    */
   getValidateMiddleware() {
-    return this.client.serviceValidate();
+    return this.client.core();
+  }
+
+  /**
+   * 直接向CAS发起ticket校验，避免中间件在失败时直接写出响应
+   */
+  async validateTicket(ticket, service = null) {
+    if (!ticket) {
+      return {
+        ok: false,
+        status: 400,
+        message: '缺少 ticket 参数'
+      };
+    }
+
+    const serviceUrl = service || new URL(config.casClient.paths.validate, config.cas.serviceUrl).toString();
+    const validateUrl = this.buildCasUrl(config.casClient.paths.serviceValidate || 'serviceValidate');
+    validateUrl.searchParams.set('service', serviceUrl);
+    validateUrl.searchParams.set('ticket', ticket);
+
+    let response;
+    try {
+      response = await axios.get(validateUrl.toString(), {
+        timeout: config.cas.timeoutMs,
+        validateStatus: () => true
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        status: 500,
+        message: '请求CAS校验接口失败',
+        error: error.message,
+        requestUrl: validateUrl.toString()
+      };
+    }
+
+    if (response.status !== 200) {
+      return {
+        ok: false,
+        status: response.status,
+        message: `CAS校验失败，状态码: ${response.status}`,
+        requestUrl: validateUrl.toString()
+      };
+    }
+
+    try {
+      const xmlText = typeof response.data === 'string'
+        ? response.data
+        : String(response.data || '');
+
+      const parsed = await parseStringPromise(xmlText, {
+        explicitArray: false,
+        tagNameProcessors: [stripPrefix]
+      });
+
+      const serviceResponse = parsed && (parsed.serviceResponse || parsed);
+      const success = serviceResponse && serviceResponse.authenticationSuccess;
+      const failure = serviceResponse && serviceResponse.authenticationFailure;
+
+      if (!success || !success.user) {
+        return {
+          ok: false,
+          status: 401,
+          message: 'CAS认证失败',
+          failure,
+          requestUrl: validateUrl.toString()
+        };
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        userInfo: {
+          user: String(success.user),
+          attributes: success.attributes || {}
+        },
+        requestUrl: validateUrl.toString()
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        status: 500,
+        message: '解析CAS校验响应失败',
+        error: error.message,
+        requestUrl: validateUrl.toString()
+      };
+    }
   }
 
   /**
@@ -41,8 +275,9 @@ class CASConnectService {
    * 获取CAS登录URL
    */
   getLoginUrl(service = null) {
-    const loginUrl = new URL("/login", config.cas.baseUrl);
-    loginUrl.searchParams.set("service", service || config.cas.serviceUrl);
+    const loginUrl = this.buildCasUrl('login');
+    const defaultService = new URL(config.casClient.paths.validate, config.cas.serviceUrl).toString();
+    loginUrl.searchParams.set('service', service || defaultService);
     return loginUrl.toString();
   }
 
@@ -50,11 +285,22 @@ class CASConnectService {
    * 获取CAS登出URL
    */
   getLogoutUrl(service = null) {
-    const logoutUrl = new URL("/logout", config.cas.baseUrl);
+    const logoutUrl = this.buildCasUrl('logout');
     if (service) {
-      logoutUrl.searchParams.set("service", service);
+      logoutUrl.searchParams.set('service', service);
     }
     return logoutUrl.toString();
+  }
+
+  /**
+   * 构建CAS路径，保留baseUrl里的/cas前缀
+   */
+  buildCasUrl(endpoint) {
+    const base = new URL(config.cas.baseUrl);
+    const basePath = (base.pathname || '/').replace(/\/+$/, '');
+    const cleanEndpoint = String(endpoint || '').replace(/^\/+/, '');
+    base.pathname = `${basePath}/${cleanEndpoint}`;
+    return base;
   }
 
   /**
@@ -64,7 +310,25 @@ class CASConnectService {
     if (!req.session) {
       return null;
     }
-    return req.session[config.casClient.sessionName] || null;
+
+    // 兼容项目自定义写法
+    if (req.session.cas_user) {
+      return req.session.cas_user;
+    }
+
+    // 兼容 connect-cas2 默认写法（validate.js 会写入 req.session.cas）
+    if (req.session.cas) {
+      return req.session.cas;
+    }
+
+    // 兼容通过 sessionName 指定的点路径（如 cas.user）
+    const sessionName = config.casClient && config.casClient.sessionName;
+    const namedUser = this.getByPath(req.session, sessionName);
+    if (namedUser) {
+      return namedUser;
+    }
+
+    return null;
   }
 
   /**
@@ -88,8 +352,8 @@ class CASConnectService {
 
     // CAS返回的用户信息可能是字符串或对象
     let studentId = null;
-
-    if (typeof casUser === "string") {
+    
+    if (typeof casUser === 'string') {
       studentId = casUser;
     } else if (casUser.user) {
       studentId = casUser.user;
@@ -102,7 +366,7 @@ class CASConnectService {
     if (studentId && this.isValidStudentId(studentId)) {
       return studentId;
     }
-
+    
     return null;
   }
 
@@ -110,7 +374,7 @@ class CASConnectService {
    * 验证学号格式
    */
   isValidStudentId(studentId) {
-    if (!studentId || typeof studentId !== "string") {
+    if (!studentId || typeof studentId !== 'string') {
       return false;
     }
     return /^[A-Za-z0-9@._-]{2,64}$/.test(studentId);
@@ -143,7 +407,11 @@ class CASConnectService {
    */
   clearSession(req) {
     if (req.session) {
-      delete req.session[config.casClient.sessionName];
+      if (req.session.cas && req.session.cas.st) {
+        this.unregisterTicketSession(req.session.cas.st);
+      }
+      delete req.session.cas;
+      delete req.session.cas_user;
       delete req.session.authenticated;
       delete req.session.studentId;
       delete req.session.authenticatedAt;
@@ -158,6 +426,7 @@ class CASConnectService {
       req.session.authenticated = true;
       req.session.studentId = studentId;
       req.session.authenticatedAt = Date.now();
+      req.session.cas_user = { user: studentId };
       return true;
     }
     return false;
@@ -179,11 +448,11 @@ class CASConnectService {
 
     try {
       const callbackUrl = new URL(base);
-      callbackUrl.searchParams.set("token", token);
-      callbackUrl.searchParams.set("timestamp", Date.now());
+      callbackUrl.searchParams.set('token', token);
+      callbackUrl.searchParams.set('timestamp', Date.now());
       return callbackUrl.toString();
     } catch (error) {
-      console.error("构建回调URL失败:", error.message);
+      console.error('构建回调URL失败:', error.message);
       return null;
     }
   }

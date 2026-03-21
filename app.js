@@ -35,6 +35,7 @@ app.use(
     secret: config.session.secret,
     resave: false,
     saveUninitialized: false,
+    rolling: true,
     cookie: {
       maxAge: config.session.ttlMs, // 10分钟
       secure: config.env === "production",

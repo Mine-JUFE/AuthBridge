@@ -22,3 +22,7 @@ coverage/
 .DS_Store
 
 public/css/tailwind.css
+whitelist.json
+secret.json
+secrets.json
+keys/

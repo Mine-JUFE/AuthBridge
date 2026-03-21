@@ -1,19 +1,22 @@
 const jwt = require("jsonwebtoken");
 const config = require("../config");
-
+const aesEncrypt = require("../utils/aes_encrypt");
 class JWTService {
   /**
    * 生成 JWT
    * @param {string} studentId - 学号
    * @returns {string} JWT Token
+   * 默认生成使用默认ECC密钥
    */
-  generate(studentId) {
+  generateToken(studentId) {
     if (!studentId || typeof studentId !== "string") {
       throw new Error("无效的学号");
     }
-
+    let encryptedStudentID;
+    encryptedStudentID=aesEncrypt.encryptText(studentId)
     const payload = {
-      sub: studentId, // 学号（主体）
+      sub: encryptedStudentID.encryptedText, // 学号（主体）
+      iv: encryptedStudentID.iv,// 加密iv随机数
       iat: Math.floor(Date.now() / 1000), // 签发时间
       iss: config.jwt.issuer, // 签发者
       aud: "Client-Applications", // 接收方
