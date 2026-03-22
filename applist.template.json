@@ -1,0 +1,22 @@
+{
+  "apps": [
+    {
+      "appid": "app1",
+      "app_aud": "app1-client",
+      "encrypt_type": "aes",
+      "callback": "https://app1.example.com/auth/callback",
+      "callback_whitelist": [
+        "https://app1.example.com/auth/callback"
+      ]
+    },
+    {
+      "appid": "app2",
+      "app_aud": "app2-client",
+      "encrypt_type": "ecc",
+      "callback": "https://app2.example.com/auth/callback",
+      "callback_whitelist": [
+        "https://app2.example.com/auth/callback"
+      ]
+    }
+  ]
+}

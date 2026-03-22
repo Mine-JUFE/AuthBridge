@@ -9,6 +9,11 @@ const routes = require("./routes");
 
 const app = express();
 
+if (config.env === "production") {
+  // 允许在反向代理后正确识别 HTTPS，避免 secure session cookie 异常
+  app.set("trust proxy", parseInt(process.env.TRUST_PROXY_HOPS || "1", 10));
+}
+
 // 基本中间件
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
@@ -21,6 +26,10 @@ app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'",
+  );
   res.setHeader(
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=()",
@@ -35,6 +44,7 @@ app.use(
     secret: config.session.secret,
     resave: false,
     saveUninitialized: false,
+    unset: "destroy",
     rolling: true,
     cookie: {
       maxAge: config.session.ttlMs, // 10分钟

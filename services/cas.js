@@ -212,11 +212,15 @@ class CASConnectService {
     }
 
     if (response.status !== 200) {
+      const responseBody = typeof response.data === 'string'
+        ? response.data.slice(0, 500)
+        : JSON.stringify(response.data || {}).slice(0, 500);
       return {
         ok: false,
         status: response.status,
         message: `CAS校验失败，状态码: ${response.status}`,
-        requestUrl: validateUrl.toString()
+        requestUrl: validateUrl.toString(),
+        responseBody
       };
     }
 
@@ -435,12 +439,13 @@ class CASConnectService {
   /**
    * 获取目标应用的回调地址
    */
-  async getCallbackUrl(targetApp, token) {
+  async getCallbackUrl(targetApp, token, customCallbackUrl = null) {
     if (!targetApp) {
       return null;
     }
 
-    const base = config.callbackApps && config.callbackApps[targetApp];
+    const preferred = typeof customCallbackUrl === 'string' ? customCallbackUrl.trim() : '';
+    const base = preferred || (config.callbackApps && config.callbackApps[targetApp]);
     if (!base) {
       console.warn(`未找到目标应用配置: ${targetApp}`);
       return null;
@@ -448,6 +453,25 @@ class CASConnectService {
 
     try {
       const callbackUrl = new URL(base);
+      const callbackWhitelist = (config.callbackWhitelistMap && config.callbackWhitelistMap[targetApp]) || [];
+      const isAllowed = callbackWhitelist.some((item) => {
+        if (typeof item !== 'string' || !item.trim()) {
+          return false;
+        }
+
+        try {
+          const allowed = new URL(item);
+          return allowed.origin === callbackUrl.origin && allowed.pathname === callbackUrl.pathname;
+        } catch (_error) {
+          return false;
+        }
+      });
+
+      if (!isAllowed) {
+        console.warn(`回调地址不在白名单中: ${targetApp} -> ${callbackUrl.toString()}`);
+        return null;
+      }
+
       callbackUrl.searchParams.set('token', token);
       callbackUrl.searchParams.set('timestamp', Date.now());
       return callbackUrl.toString();

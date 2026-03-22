@@ -9,11 +9,14 @@
       "url": "https://opensource.org/licenses/MIT"
     }
   ],
+  "homepage": "https://github.com/Mine-Jufe/AuthBridge",
   "scripts": {
     "build:css": "tailwindcss -i ./public/css/input.css -o ./public/css/tailwind.css --minify",
     "watch:css": "tailwindcss -i ./public/css/input.css -o ./public/css/tailwind.css --watch",
-    "generate:rsa": "node scripts/generate_rsa_keypair.js",
-    "generate:aes": "node scripts/generate_aes_keys.js",
+    "generate:rsa": "node scripts/rsa_generate.js",
+    "generate:aes": "node scripts/aes_generate.js",
+    "generate:jwt": "node scripts/jwt_generate.js",
+    "generate:ecc": "node scripts/ecc_generate.js",
     "start": "node server.js",
     "dev": "node --watch server.js"
   },
@@ -23,15 +26,16 @@
     "express",
     "sso"
   ],
-  "author": "",
-  "license": "MIT",
+  "contributors": [
+    {"name": "Mine_JUFE", "url": "https://www.minejufe.cn"},
+    {"name": "Tobby_000", "url": "https://www.komonmc.cn"}
+   ],
   "dependencies": {
     "axios": "^1.6.0",
     "connect-cas2": "^1.2.5",
     "dotenv": "^16.0.0",
     "ejs": "^5.0.1",
     "express": "^4.18.2",
-    "express-ejs-layouts": "^2.5.1",
     "express-session": "^1.17.3",
     "jsonwebtoken": "^9.0.2"
   },

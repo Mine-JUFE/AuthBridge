@@ -3,6 +3,9 @@ const express = require('express');
 const router = express.Router();
 const config = require('../config');
 
+const isProduction = config.env === 'production';
+const isDebugApiEnabled = !!(config.security && config.security.debugApiEnabled);
+
 /**
  * 健康检查
  * GET /api/health
@@ -22,8 +25,12 @@ router.get('/health', (req, res) => {
  * GET /api/debug/session
  */
 router.get('/debug/session', (req, res) => {
-  if (config.env === 'production') {
-    return res.status(403).json({ error: '禁止访问' });
+  if (isProduction) {
+    return res.status(404).json({ error: 'Not Found' });
+  }
+
+  if (!isDebugApiEnabled) {
+    return res.status(403).json({ error: '调试接口已禁用' });
   }
   
   res.json({
@@ -43,14 +50,7 @@ router.get('/debug/session', (req, res) => {
  * POST /api/verify-jwt
  */
 router.post('/verify-jwt', (req, res) => {
-  const { token } = req.body;
-  
-  if (!token) {
-    return res.status(400).json({ error: '缺少token参数' });
-  }
-  
-  const result = require('../services/jwt').verifyToken(token);
-  res.json(result);
+  return res.status(404).json({ error: 'Not Found' });
 });
 
 module.exports = router;
