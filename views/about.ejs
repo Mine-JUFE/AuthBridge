@@ -17,77 +17,72 @@ body: `
         目前对接<strong>江西财经大学 CAS 系统</strong
         >，支持<strong>单点登录</strong>和<strong>JWT 令牌生成</strong>。通过
         JWT
-        令牌可以避免非白名单直接登录江西财经大学的认证系统，但同时也能获得一定量的认证能力。
+        令牌可以避免非白名单应用直接登录江西财经大学的认证系统，但同时也能获得安全、可控的认证能力。
       </p>
 
       <p class="text-gray-700 leading-relaxed">
-        为了避免后端应用直接获取到<strong>学号、姓名等敏感数据</strong>，并且保证本应用是<strong>无状态的</strong>，JWT
-        令牌中仅包含学号经过复杂单向哈希计算后的字符串和一个过期时间戳。后端应用可以通过验证这个令牌的<strong>合法性</strong>来判断用户是否已经登录，并且可以通过<strong>过期时间</strong>来控制令牌的有效期。
+        为了在保护用户隐私与满足系统审计需求之间取得平衡，JWT
+        令牌中不直接包含明文<strong>学号、姓名等敏感数据</strong>。本应用默认采用<strong>椭圆曲线加密 (ECC)</strong> 对用户学号进行可逆加密。后端应用在持有对应私钥的情况下，可以验证令牌的<strong>合法性</strong>，并在必要时解密出原始学号用于关键业务或安全审计，这解决了完全匿名化方案在审计上的不可行性问题。
       </p>
 
       <p class="text-gray-700 leading-relaxed">
-        具体流程为：CAS 登录后，本应用拿到有效 Token
-        后获取用户<strong>学号</strong>。学号附加上一串仅保存在服务器的字符串，再进行诸如<strong
-          >bcrypt 等复杂单向哈希</strong
-        >或<strong>AES 等常规对称加密</strong
-        >计算，得到一个字符串。这个字符串和<strong>过期时间戳</strong>一起生成<strong
-          >JWT 令牌</strong
-        >返回给前端。
+        具体流程为：CAS 登录后，本应用拿到有效 Ticket
+        后获取用户<strong>学号</strong>。学号经过<strong>ECC 加密</strong>后，与<strong>过期时间戳</strong>及其他必要声明封装生成<strong>JWT 令牌</strong>返回给前端。整个过程保证应用是<strong>无状态的</strong>。
       </p>
 
       <p class="text-gray-700 leading-relaxed">
-        根据后端的需求不同，加密方式是<strong>可选的</strong>。本应用仅授权给可信业务方，对于无需解密的场景，我们会<strong>强制</strong>后端应用使用单向哈希后的字符串进行认证，以保护用户的隐私安全。如果后端应用需要可解密的学号，我们将在醒目位置标注<strong>风险提示</strong>。
-      </p>
-
-      <p class="text-gray-700 leading-relaxed">
-        我们将<strong>严禁明文学号的流出</strong>。对于需要可解密学号的后端应用，我们会要求其必须使用<strong
-          >HTTPS 协议</strong
-        >来保护数据传输安全，并且定期审计这些后端应用的<strong>安全措施</strong>，确保用户数据安全。同时，我们也会提供<strong>安全建议和最佳实践</strong>，帮助后端应用更好地保护用户数据。
+        我们将<strong>严禁明文学号的流出</strong>。对于后端应用，我们会要求其必须使用<strong>HTTPS 协议</strong>来保护数据传输安全，并且定期审计这些后端应用的<strong>安全措施</strong>，确保用户数据安全。同时，我们也会提供<strong>安全建议和最佳实践</strong>，帮助后端应用更好地保护用户数据。
       </p>
       <p class="text-gray-700 leading-relaxed">
-        截止到目前，我们对称加密JWT仅仅允许用户<strong>手动复制，手动授权，不可以直接回调</strong>。
+        对于难以使用ECC加密的应用，我们也提供了<strong>AES加密的选项</strong>，虽然这种方式在<strong>安全性</strong>上不如ECC，但在某些特定场景下可能更易于集成。安全性不足主要体现在如果AES<strong>密钥管理不当</strong>，可能会导致敏感数据泄露，因此我们强烈建议仅在<strong>无法使用ECC的情况下才考虑AES</strong>，并且务必做好密钥的安全管理。但是AES加密防暴破相对ECC更强，所以在大部分情况下安全性不会降级。
       </p>
       <p class="text-gray-700 leading-relaxed">
-        <strong>CAS的设计 可以保证我们全程无法获取用户的密码等敏感信息</strong>，而
-        JWT
-        令牌中也不包含任何敏感信息，因此整个认证流程是安全的。同时，我们也会<strong>定期审计和更新安全措施</strong>，以应对新的安全威胁。
+        <strong>CAS的设计可以保证我们全程无法获取用户的密码等敏感信息</strong>。同时，我们也会<strong>定期审计和更新安全措施</strong>，以应对新的安全威胁。
       </p>
     </div>
   </div>
   <h2 class="text-3xl font-bold mb-8 text-gray-900">名词介绍</h2>
+  <p class="mb-8 text-lg leading-relaxed text-gray-700">
+    在使用 AuthBridge 的过程中，您可能会遇到一些专业术语。以下是对这些术语的简要介绍(你狐的碎碎念环节)：
   <div class="space-y-6 mb-10 text-left">
     <div class="space-y-6 mb-10 text-left">
         <p class="text-gray-700 leading-relaxed">
-            CAS（Central Authentication Service）：是一套<strong>单点登录（SSO）标准方案</strong>，
+            <strong>CAS（Central Authentication Service）</strong>：是一套<strong>单点登录（SSO）标准方案</strong>，
             核心作用是让用户<strong>一次登录、多系统通行</strong>。用户只需在统一的CAS认证中心完成身份校验，
             后续访问其他接入CAS的应用时，无需重复输入账号密码；各应用<strong>不直接存储用户密码</strong>，而是通过<strong>票据（Ticket）</strong>向认证中心验证登录状态，
             既提升使用体验，又能统一管控用户身份与权限，实现多系统间<strong>安全、统一的身份认证</strong>。
         </p>
         <p class="text-gray-700 leading-relaxed">
-            JWT（JSON Web Token）：是一种<strong>轻量级的身份认证令牌</strong>，以JSON格式封装用户身份信息，通过数字签名保证信息不被篡改。
+            <strong>JWT（JSON Web Token）</strong>：是一种<strong>轻量级的身份认证令牌</strong>，以JSON格式封装用户身份信息，通过数字签名保证信息不被篡改。
             它无需后端存储会话数据，仅通过令牌本身即可完成身份验证，实现应用的<strong>无状态化</strong>。
-            JWT由头部（算法与令牌类型）、载荷（用户非敏感信息/过期时间等）、签名（防止数据篡改）三部分组成，
+            JWT由头部（算法与令牌类型）、载荷（用户声明/过期时间等）、签名（防止数据篡改）三部分组成，
             后端通过验证签名的<strong>有效性</strong>和载荷中的<strong>过期时间</strong>，就能快速判断用户身份合法性与令牌有效期。
         </p>
         <p class="text-gray-700 leading-relaxed">
-            单向慢哈希：是在<strong>单向哈希算法</strong>基础上增加计算耗时的加密方式，
-            它不仅具备“只能正向计算、无法逆向还原”的单向性，还通过多次迭代、增加计算复杂度等方式刻意放慢哈希运算速度。
-            这种设计既能避免学号等敏感数据被逆向破解，又能大幅提升暴力破解的成本——即使攻击者获取到哈希结果，
-            也难以在短时间内通过枚举方式还原原始数据，从而为用户敏感信息提供<strong>更高等级的安全防护</strong>。
+            <strong>ECC（椭圆曲线加密算法）</strong>：是一种基于椭圆曲线数学的<strong>非对称加密算法</strong>。与RSA相比，在相同安全强度下，ECC可以使用更短的密钥，效率更高。在AuthBridge中，我们使用ECC公钥加密用户标识符（如学号），私钥由可信服务端保管。这种方式既保证了令牌中用户数据的机密性（无法被第三方破解），又因为服务端可以解密，从而满足了必要的<strong>审计与追溯需求</strong>，是平衡安全性与业务可行性的选择。
         </p>
         <p class="text-gray-700 leading-relaxed">
-            AES（高级加密标准）：是一种<strong>对称加密算法</strong>，加密与解密使用同一把密钥，
+            <strong>AES（高级加密标准,本项目中的降级方案）：</strong>是一种<strong>对称加密算法</strong>，加密与解密使用同一把密钥，
             具备加密速度快、安全性高的特点。与单向哈希不同，AES是可逆的——只要持有合法密钥，
             就能将加密后的密文还原为原始明文。在应用中，可通过AES对学号、姓名等敏感数据进行加密存储/传输，
             只有掌握密钥的后端服务才能解密获取原始信息，既避免敏感数据明文暴露，又能在需要时恢复数据，
             是平衡<strong>数据安全</strong>与<strong>业务可用性</strong>的常用加密方式。
+        </p>
+        <p class="text-gray-700 leading-relaxed">
+          <strong>破解难度：</strong>对于ECC-384基本上等同于256位的AES，当前没有已知的有效破解方法；而AES-256在密钥管理不当的情况下可能会被泄露导致解密，因此我们强烈建议仅在无法使用ECC的情况下才考虑AES，并且务必做好密钥的安全管理。对于AES-256的密钥破解，全世界的算力大约为2^80次方级别，理论上需要数十亿年才能破解一个256位的AES密钥，而ECC-384的安全性相当于256位AES，因此在当前和可预见的未来，ECC-384和AES-256都被认为是非常安全的加密算法。并且ECC-384和AES-256是tls1.3标准中高级别的加密套件，广泛应用于保护互联网通信安全。
+        </p>
+<p class="text-gray-700 leading-relaxed">
+          常见的加密算法主要分为三类：<br>
+          <strong>对称加密</strong>，如 AES 及其变种或国密 SM4 等，核心通过多轮混淆、置换、线性变换、还有查表去替换等操作实现扩散和混淆。特点是<strong>加密与解密使用同一密钥，速度快但密钥管理复杂，网络中一般配合非对称加密用于密钥交换（如 DH）和签名密钥管理</strong>；（你觉得大量线性和非线性运算应该很慢？不不不，对于计算机这是简易计算，并且现代cpu都内置AES-NI指令集，用硬件解密是几十gb级别每秒）<br>
+          <strong>非对称加密</strong>，主要为 RSA 和 ECC 系列，其安全性基于巧妙的数学难题（如大数分解或椭圆曲线离散对数），特点是<strong>使用公钥加密、私钥解密（加密场景）或者私钥加密、公钥解密（更准确叫私钥签名，公钥验签，签名场景）</strong>，安全性高但计算较慢；（狐：怎么理解数学难题？你想想俩素数相乘，就比如说 17 × 19 = 323，简简单单，来给你一个稍微大一点的的数字比如说 x × y = 19519，请你求出x和y,这个就是rsa依赖的数学难题，逆运算和正向运算的难度差极大，rsa用的可是上千位二进制素数作为题目，让你去求解）<br>
+          <strong>哈希算法</strong>，为啥这个算法没带加密两字，严格来说这算摘要算法，不考虑解密的。如 SHA256、SHA3 等快哈希，以及 bcrypt、argon2 等慢哈希，其特点是<strong>单向不可逆</strong>。快哈希常用于数据完整性校验，而慢哈希则通过<strong>刻意增加计算耗时来提升暴力破解成本</strong>，常用于密码存储。<br>
         </p>
     </div>
   </div>
   <!-- 项目开发者标题 -->
   <h2 class="text-3xl font-bold mb-8 text-gray-900">项目团队</h2>
 
-  <!-- 团队与个人信息 - 简约风格 -->
+  <!-- 团队与个人信息 -->
   <div class="space-y-8 text-left mb-10 text-center">
     <!-- 团队介绍 -->
     <div>
