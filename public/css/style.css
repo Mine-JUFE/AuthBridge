@@ -63,3 +63,6 @@ body {
     transform: translateY(-20px);
   }
 }
+.incontext-link {
+  color: color-mix(in oklab, var(--colors-light-primary) var(--un-text-opacity), transparent) !important;
+}

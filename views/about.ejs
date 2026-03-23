@@ -12,7 +12,7 @@ body: `
 
   <!-- 功能特点说明 -->
   <div class="space-y-6 mb-10 text-left">
-    <div class="space-y-6 mb-10 text-left">
+
       <p class="text-gray-700 leading-relaxed">
         目前对接<strong>江西财经大学 CAS 系统</strong
         >，支持<strong>单点登录</strong>和<strong>JWT 令牌生成</strong>。通过
@@ -39,11 +39,11 @@ body: `
       <p class="text-gray-700 leading-relaxed">
         <strong>CAS的设计可以保证我们全程无法获取用户的密码等敏感信息</strong>。同时，我们也会<strong>定期审计和更新安全措施</strong>，以应对新的安全威胁。
       </p>
-    </div>
+
   </div>
   <h2 class="text-3xl font-bold mb-8 text-gray-900">名词介绍</h2>
   <p class="mb-8 text-lg leading-relaxed text-gray-700">
-    在使用 AuthBridge 的过程中，您可能会遇到一些专业术语。以下是对这些术语的简要介绍(你狐的碎碎念环节)：
+    在使用 AuthBridge 的过程中，您可能会遇到一些专业术语。以下是对这些术语的简要介绍(你狐的碎碎念环节)：</p>
   <div class="space-y-6 mb-10 text-left">
     <div class="space-y-6 mb-10 text-left">
         <p class="text-gray-700 leading-relaxed">
@@ -81,27 +81,24 @@ body: `
   </div>
   <!-- 项目开发者标题 -->
   <h2 class="text-3xl font-bold mb-8 text-gray-900">项目团队</h2>
-
+  <p class="mb-8 text-lg leading-relaxed text-gray-700">
+    感谢 Simon Shiki 的前端，Tobby狐直接Ctrl+C/V。极大提升了开发效率，和拯救了狐狸锈住的脑子。</p>
   <!-- 团队与个人信息 -->
   <div class="space-y-8 text-left mb-10 text-center">
     <!-- 团队介绍 -->
     <div>
       <h3 class="text-xl font-semibold mb-2 text-gray-800">开发团队</h3>
       <p class="text-gray-700 mb-3">
-        Mine-JUFE 团队 - 项目发起方与主要开发团队
+        <strong>Mine-JUFE 团队</strong> - 项目发起方与主要开发团队
+      </p>
+      <p class="text-gray-700 mb-3">
+        你很难想象我们的主业是Minecraft游戏有关的，包括Minecraft服务器搭建与维护、二创美术等等。
       </p>
       <div class="text-gray-600 space-x-4">
         <a
           href="https://github.com/Mine-JUFE"
           target="_blank"
-          class="text-blue-600 hover:text-blue-800 hover:underline"
-          style="
-            color: color-mix(
-              in oklab,
-              var(--colors-light-primary) var(--un-text-opacity),
-              transparent
-            );
-          "
+          class="hover:underline incontext-link"
         >
           GitHub
         </a>
@@ -109,14 +106,7 @@ body: `
         <a
           href="https://www.minejufe.cn"
           target="_blank"
-          class="text-blue-600 hover:text-blue-800 hover:underline"
-          style="
-            color: color-mix(
-              in oklab,
-              var(--colors-light-primary) var(--un-text-opacity),
-              transparent
-            );
-          "
+          class=" hover:underline incontext-link"
         >
           官网
         </a>
@@ -127,20 +117,17 @@ body: `
     <div>
       <h3 class="text-xl font-semibold mb-2 text-gray-800">核心开发者</h3>
       <p class="text-gray-700 mb-3">
-        Tobby_000 - Mine-JUFE 团队成员，负责架构设计与核心功能开发
+        <strong>Tobby_000</strong> - Mine-JUFE 团队成员，负责架构设计与核心功能开发
+      </p>
+      <p class="text-gray-700 mb-3">
+        乱敲代码的狐狸，专业写出巨量抽象代码。
       </p>
       <div class="text-gray-600 space-x-4">
         <a
           href="https://github.com/Tobby-000"
           target="_blank"
-          class="text-blue-600 hover:text-blue-800 hover:underline"
-          style="
-            color: color-mix(
-              in oklab,
-              var(--colors-light-primary) var(--un-text-opacity),
-              transparent
-            );
-          "
+          class="hover:underline incontext-link"
+
         >
           GitHub
         </a>
@@ -148,14 +135,7 @@ body: `
         <a
           href="https://www.komonmc.cn"
           target="_blank"
-          class="text-blue-600 hover:text-blue-800 hover:underline"
-          style="
-            color: color-mix(
-              in oklab,
-              var(--colors-light-primary) var(--un-text-opacity),
-              transparent
-            );
-          "
+          class="hover:underline incontext-link"
         >
           个人博客
         </a>
@@ -180,14 +160,7 @@ body: `
         <a
           href="https://github.com/Mine-JUFE/AuthBridge"
           target="_blank"
-          class="text-blue-600 hover:text-blue-800 hover:underline"
-          style="
-            color: color-mix(
-              in oklab,
-              var(--colors-light-primary) var(--un-text-opacity),
-              transparent
-            );
-          "
+          class="hover:underline incontext-link" 
         >
           github.com/Mine-JUFE/AuthBridge
         </a>
@@ -202,5 +175,6 @@ body: `
     </p>
   </div>
 </div>
+
 ` }; %>
 <%- include('./shared/layout',pagedata) %>

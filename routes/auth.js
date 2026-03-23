@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const config = require('../config');
 const casService = require('../services/cas');
 const jwtService = require('../services/jwt');
+const { logError, sanitizeValue } = require('../utils/error_handler');
 
 const isProduction = config.env === 'production';
 
@@ -312,11 +313,26 @@ function renderAuthErrorAndClearSession(req, res, status, title, message) {
 
   return req.session.destroy((err) => {
     if (err) {
-      console.error('认证失败时销毁session失败:', err);
+      logError('认证失败时销毁session失败', err, {
+        path: req.originalUrl,
+      });
     }
     req.session = null;
     return sendAuthErrorResponse();
   });
+}
+
+function safeAsync(handler) {
+  return (req, res, next) => {
+    Promise.resolve(handler(req, res, next)).catch((error) => {
+      logError('路由异步处理失败', error, {
+        method: req.method,
+        path: req.originalUrl,
+        query: sanitizeValue(req.query),
+      });
+      next(error);
+    });
+  };
 }
 
 function isLikelyGatewayIntercept403(validation) {
@@ -336,7 +352,7 @@ async function handleSloNotification(req, res) {
 
   const result = await casService.handleBackChannelLogout(logoutRequest, req.sessionStore);
   if (!result.ok) {
-    console.warn('CAS SLO处理失败:', result);
+    console.warn('CAS SLO处理失败:', sanitizeValue(result));
     return res.status(204).end();
   }
 
@@ -436,7 +452,10 @@ router.get('/login', (req, res) => {
     res.redirect(loginUrl);
     
   } catch (error) {
-    console.error('登录入口错误:', error);
+    logError('登录入口错误', error, {
+      path: req.originalUrl,
+      query: sanitizeValue(req.query),
+    });
     res.status(500).render('error', {
       title: '登录失败',
       message: '系统错误，请稍后重试'
@@ -473,7 +492,10 @@ const casServiceValidateHandler = async (req, res) => {
       const serviceUrl = req.session.casFixedServiceUrl || getCasCallbackServiceUrl(req);
       const validation = await casService.validateTicket(ticket, serviceUrl);
       if (!validation.ok) {
-        console.error('CAS票据校验失败:', sanitizeValidationLog(validation));
+        logError('CAS票据校验失败', new Error('CAS ticket validation failed'), {
+          validation: sanitizeValidationLog(validation),
+          path: req.originalUrl,
+        });
         const message = validation.status === 403
           ? (
             isLikelyGatewayIntercept403(validation)
@@ -500,7 +522,7 @@ const casServiceValidateHandler = async (req, res) => {
     // 仅在存在预期state时进行校验；手动模式允许无state回调
     const expectedState = req.session.authState;
     if (expectedState && state && state !== expectedState) {
-      console.error('State验证失败', {
+      logError('State验证失败', new Error('State mismatch'), {
         queryState: maskValue(state),
         sessionState: maskValue(expectedState)
       });
@@ -623,13 +645,16 @@ const casServiceValidateHandler = async (req, res) => {
     // ===== [CAS 回调处理结束] =====
     
   } catch (error) {
-    console.error('CAS回调处理错误:', error);
+    logError('CAS回调处理错误', error, {
+      path: req.originalUrl,
+      query: sanitizeValue(req.query),
+    });
     return renderAuthErrorAndClearSession(
       req,
       res,
       500,
       '系统错误',
-      error.message || '处理认证时发生错误'
+      '处理认证时发生错误'
     );
   }
 };
@@ -647,17 +672,11 @@ router.get('/cas/login', casService.getLoginMiddleware());
  * 忽略CAS服务端下发的SLO请求（不处理ST）
  * POST /cas/serviceValidate
  */
-router.post('/cas/serviceValidate', (req, res) => {
-  return handleSloNotification(req, res);
-});
+router.post('/cas/serviceValidate', safeAsync(handleSloNotification));
 
-router.post('/serviceValidate', (req, res) => {
-  return handleSloNotification(req, res);
-});
+router.post('/serviceValidate', safeAsync(handleSloNotification));
 
-router.post('/cas/slo', (req, res) => {
-  return handleSloNotification(req, res);
-});
+router.post('/cas/slo', safeAsync(handleSloNotification));
 
 /**
  * 显示JWT令牌
@@ -702,7 +721,9 @@ router.get('/logout', (req, res) => {
   if (req.session) {
     return req.session.destroy((err) => {
       if (err) {
-        console.error('销毁session失败:', err);
+        logError('登出时销毁session失败', err, {
+          path: req.originalUrl,
+        });
       }
       return finishLogout();
     });

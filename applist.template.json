@@ -3,7 +3,6 @@
     {
       "appid": "app1",
       "app_aud": "app1-client",
-      "encrypt_type": "aes",
       "callback": "https://app1.example.com/auth/callback",
       "callback_whitelist": [
         "https://app1.example.com/auth/callback"

@@ -8,6 +8,7 @@ const {
   encryptStudentIdWithEcc,
   decryptStudentIdWithEcc,
 } = require("../utils/jwt_ecc_crypto");
+const { logError } = require("../utils/error_handler");
 
 const isProduction = config.env === "production";
 
@@ -55,6 +56,10 @@ class JWTService {
   }
 
   resolveJwtSecretForApp(appid) {
+    if (!appid || typeof appid !== "string") {
+      throw new Error("JWT 缺少 appid，无法选择独立签名密钥");
+    }
+
     const appSecret = this.getAppSecret(appid);
     if (appSecret && typeof appSecret === "object") {
       if (typeof appSecret.jwt_key === "string" && appSecret.jwt_key.trim()) {
@@ -65,7 +70,7 @@ class JWTService {
       }
     }
 
-    return this.normalizeJwtSecret(config.jwt.secret);
+    throw new Error(`应用 ${appid} 缺少独立 JWT 密钥配置（secret.json -> appSecrets.${appid}.jwt_key）`);
   }
 
   resolveDefaultAppId() {
@@ -182,7 +187,7 @@ class JWTService {
       });
       return payload;
     } catch (error) {
-      console.error("❌ JWT 验证失败:", error.message);
+      logError("JWT 验证失败", error);
       return null;
     }
   }
@@ -211,9 +216,12 @@ class JWTService {
 
         result.studentId = decryptStudentIdWithAes(decoded.sub, decoded.iv, appSecret.aes_key);
       } catch (error) {
+        logError("JWT AES 解密失败", error, {
+          appid: decoded.appid,
+        });
         return {
           valid: false,
-          error: `JWT 已验签，但解密失败: ${error.message}`,
+          error: "JWT 解密失败",
           payload: decoded,
         };
       }
@@ -240,9 +248,12 @@ class JWTService {
           eccPrivateKey,
         );
       } catch (error) {
+        logError("JWT ECC 解密失败", error, {
+          appid: decoded.appid,
+        });
         return {
           valid: false,
-          error: `JWT 已验签，但ECC解密失败: ${error.message}`,
+          error: "JWT 解密失败",
           payload: decoded,
         };
       }
@@ -255,7 +266,7 @@ class JWTService {
     try {
       return jwt.decode(token);
     } catch (error) {
-      console.error("❌ JWT 解码失败:", error.message);
+      logError("JWT 解码失败", error);
       return null;
     }
   }

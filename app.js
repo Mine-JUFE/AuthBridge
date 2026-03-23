@@ -6,6 +6,7 @@ const path = require("path");
 // 导入模块
 const config = require("./config");
 const routes = require("./routes");
+const { logError, createClientErrorPayload } = require("./utils/error_handler");
 
 const app = express();
 
@@ -67,11 +68,24 @@ app.use("/", routes);
 
 // 错误处理中间件
 app.use((err, req, res, next) => {
-  console.error("Error:", err.message);
-  res.status(err.status || 500).send({
-    error: err.message || "Internal Server Error",
+  const status = Number(err && err.status) || 500;
+  const payload = createClientErrorPayload(status);
+
+  logError("全局异常", err, {
+    method: req.method,
     path: req.originalUrl,
+    query: req.query,
+    ip: req.ip,
   });
+
+  if (req.accepts("html")) {
+    return res.status(status).render("error", {
+      title: status >= 500 ? "系统错误" : "请求失败",
+      message: payload.error,
+    });
+  }
+
+  return res.status(status).json(payload);
 });
 
 // 404处理

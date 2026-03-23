@@ -3,7 +3,6 @@
     {
       "appid": "app1",
       "app_aud": "app1-client",
-      "encrypt_type": "aes",
       "callback": "http://app1.example.com/auth/callback",
       "callback_whitelist": [
         "http://app1.example.com/auth/callback"
@@ -13,9 +12,9 @@
       "appid": "app2",
       "app_aud": "app2-client",
       "encrypt_type": "ecc",
-      "callback": "http://app2.example.com/auth/callback",
+      "callback": "https://coursatlas.simonshiki.top/api/auth/callback",
       "callback_whitelist": [
-        "http://app2.example.com/auth/callback"
+        "https://coursatlas.simonshiki.top/api/auth/callback"
       ]
     }
   ]

@@ -36,10 +36,8 @@ const appListConfig = readJsonSafe("applist.json", {
 }, "APPLIST_PATH");
 
 const secretConfig = readJsonSafe("secret.json", {
-  jwtSecret: process.env.JWT_SECRET || "your-super-secret-jwt-key-change-in-production",
   sessionSecret:
     process.env.SESSION_SECRET || "your-session-secret-key-change-in-production",
-  appKey: process.env.APP_KEY || "authbridge-jufe",
   appSecrets: {},
 }, "SECRET_PATH");
 
@@ -83,12 +81,7 @@ function assertSecureSecretConfig(configValue) {
   }
 
   const issues = [];
-  const jwtSecret = configValue && configValue.jwtSecret;
   const sessionSecret = configValue && configValue.sessionSecret;
-
-  if (isPlaceholderSecret(jwtSecret) || !isStrongSecret(jwtSecret, 32)) {
-    issues.push("jwtSecret 不安全（占位符或长度不足）");
-  }
 
   if (isPlaceholderSecret(sessionSecret) || !isStrongSecret(sessionSecret, 32)) {
     issues.push("sessionSecret 不安全（占位符或长度不足）");
@@ -213,6 +206,51 @@ const appSecretMap =
     ? secretConfig.appSecrets
     : {};
 
+function getAppJwtKey(appSecret) {
+  if (!appSecret || typeof appSecret !== "object") {
+    return null;
+  }
+
+  if (typeof appSecret.jwt_key === "string" && appSecret.jwt_key.trim()) {
+    return appSecret.jwt_key.trim();
+  }
+
+  if (typeof appSecret.jwtSecret === "string" && appSecret.jwtSecret.trim()) {
+    return appSecret.jwtSecret.trim();
+  }
+
+  return null;
+}
+
+function assertPerAppJwtSecrets(appList, secretMap) {
+  if (process.env.ALLOW_WEAK_SECRETS === "true") {
+    return;
+  }
+
+  const issues = [];
+
+  appList.forEach((app) => {
+    const appid = app && app.appid;
+    const jwtKey = getAppJwtKey(secretMap && secretMap[appid]);
+    if (!jwtKey) {
+      issues.push(`appSecrets.${appid}.jwt_key 缺失`);
+      return;
+    }
+
+    if (isPlaceholderSecret(jwtKey) || !isStrongSecret(jwtKey, 32)) {
+      issues.push(`appSecrets.${appid}.jwt_key 不安全（占位符或长度不足）`);
+    }
+  });
+
+  if (issues.length && resolvedEnv === "production") {
+    throw new Error(
+      `安全配置校验失败: ${issues.join("; ")}。请为每个应用配置独立 JWT 密钥。`,
+    );
+  }
+}
+
+assertPerAppJwtSecrets(normalizedAppList, appSecretMap);
+
 const callbackAppsFromEnv = {
   app1: process.env.CALLBACK_APP_1,
   app2: process.env.CALLBACK_APP_2,
@@ -252,7 +290,6 @@ module.exports = {
   port: parseInt(process.env.PORT, 10) || 3000,
   appName: process.env.APP_NAME || "AuthBridge",
   appUrl: resolvedAppUrl,
-  appKey: secretConfig.appKey,
 
   // CAS配置
   cas: {
@@ -302,7 +339,6 @@ module.exports = {
 
   // JWT配置
   jwt: {
-    secret: secretConfig.jwtSecret,
     expiresIn: process.env.JWT_EXPIRES_IN || "1h",
     issuer: process.env.JWT_ISSUER || process.env.APP_NAME || "AuthBridge",
     defaultAppId: process.env.DEFAULT_APP_ID || null,
