@@ -1,0 +1,53 @@
+name: Build & Push Docker Image
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 自动把组织名转小写（修复大写报错）
+      - name: Set repo owner to lowercase
+        id: repo
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      # 自动生成版本号：日期 + git 短哈希
+      - name: Generate version tags
+        id: meta
+        run: |
+          DATE=$(date +%Y%m%d)
+          SHA=$(echo ${GITHUB_SHA} | cut -c1-7)
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 构建并推送 3 个版本标签
+      - name: Build and Push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.owner }}/authbridge:latest
+            ghcr.io/${{ steps.repo.outputs.owner }}/authbridge:${{ steps.meta.outputs.date }}
+            ghcr.io/${{ steps.repo.outputs.owner }}/authbridge:${{ steps.meta.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
