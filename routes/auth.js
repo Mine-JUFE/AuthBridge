@@ -61,29 +61,8 @@ function generateState() {
   return crypto.randomBytes(16).toString('hex');
 }
 
-function getExternalOrigin(req) {
-  const forwardedProtoRaw = req.headers['x-forwarded-proto'];
-  const forwardedHostRaw = req.headers['x-forwarded-host'];
-  const forwardedProto = Array.isArray(forwardedProtoRaw)
-    ? forwardedProtoRaw[0]
-    : String(forwardedProtoRaw || '').split(',')[0].trim();
-  const forwardedHost = Array.isArray(forwardedHostRaw)
-    ? forwardedHostRaw[0]
-    : String(forwardedHostRaw || '').split(',')[0].trim();
-
-  const protocol = forwardedProto || req.protocol || 'http';
-  const host = forwardedHost || req.get('host');
-
-  if (!host) {
-    return new URL(config.cas.serviceUrl).origin;
-  }
-
-  return `${protocol}://${host}`;
-}
-
-function getCasCallbackServiceUrl(req) {
-  const base = getExternalOrigin(req);
-  return new URL(config.casClient.paths.validate, `${base}/`).toString();
+function getCasCallbackServiceUrl() {
+  return config.buildAppUrl(config.casClient.paths.validate);
 }
 
 function getIncomingTarget(req) {
@@ -440,7 +419,7 @@ router.get('/login', (req, res) => {
     console.log(`🔐 登录请求 - State: ${maskValue(state)}, appid: ${appid || '手动模式'}, mode: ${returnMode || 'auto'}`);
 
     // service 必须和 connect-cas2 校验阶段的 service 完全一致，否则 CAS 会返回 403
-    const serviceUrl = getCasCallbackServiceUrl(req);
+    const serviceUrl = getCasCallbackServiceUrl();
     req.session.casFixedServiceUrl = serviceUrl;
     
     // 获取CAS登录URL
@@ -489,7 +468,7 @@ const casServiceValidateHandler = async (req, res) => {
     if (req.session.cas && req.session.cas.st === ticket) {
       console.log(`检测到重复ticket回调，跳过二次验签: ${maskValue(ticket, 4, 4)}`);
     } else {
-      const serviceUrl = req.session.casFixedServiceUrl || getCasCallbackServiceUrl(req);
+      const serviceUrl = req.session.casFixedServiceUrl || getCasCallbackServiceUrl();
       const validation = await casService.validateTicket(ticket, serviceUrl);
       if (!validation.ok) {
         logError('CAS票据校验失败', new Error('CAS ticket validation failed'), {
@@ -638,7 +617,7 @@ const casServiceValidateHandler = async (req, res) => {
     // 情况3: 无app和无自定义回调时，直接渲染JWT展示页
     // ===== [JWT 调用] generateToken =====
     const token = jwtService.generateToken(studentId);
-    const jwtUrl = new URL('/jwt', config.appUrl);
+    const jwtUrl = new URL(config.buildAppUrl('/jwt'));
     jwtUrl.searchParams.set('token', token);
     jwtUrl.searchParams.set('studentId', studentId);
     return res.redirect(jwtUrl.toString());

@@ -1,6 +1,8 @@
 require("dotenv").config();
 const express = require("express");
 const session = require("express-session");
+const connectRedis = require("connect-redis");
+const { createClient } = require("redis");
 const path = require("path");
 
 // 导入模块
@@ -9,6 +11,40 @@ const routes = require("./routes");
 const { logError, createClientErrorPayload } = require("./utils/error_handler");
 
 const app = express();
+const RedisStore = connectRedis.RedisStore || connectRedis.default || connectRedis;
+
+function createSessionStore() {
+  if (!config.session.useRedis || config.session.store !== "redis") {
+    console.log("Session存储: memory（Redis已关闭）");
+    return null;
+  }
+
+  const redisClient = createClient({
+    url: config.session.redisUrl,
+  });
+
+  redisClient.on("error", (error) => {
+    logError("Redis连接异常", error, {
+      redisUrl: config.session.redisUrl,
+    });
+  });
+
+  redisClient.connect().then(() => {
+    console.log("Redis会话存储已连接");
+  }).catch((error) => {
+    logError("Redis连接失败", error, {
+      redisUrl: config.session.redisUrl,
+    });
+  });
+
+  return new RedisStore({
+    client: redisClient,
+    prefix: config.session.redisPrefix,
+    ttl: Math.ceil(config.session.ttlMs / 1000),
+  });
+}
+
+const sessionStore = createSessionStore();
 
 if (config.env === "production") {
   // 允许在反向代理后正确识别 HTTPS，避免 secure session cookie 异常
@@ -19,7 +55,8 @@ if (config.env === "production") {
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-app.use(express.static("public"));
+app.locals.basePath = config.appBasePath;
+app.locals.withBasePath = config.withBasePath;
 
 // 基础安全响应头
 app.disable("x-powered-by");
@@ -43,6 +80,7 @@ app.use(
   session({
     name: config.session.name,
     secret: config.session.secret,
+    store: sessionStore || undefined,
     resave: false,
     saveUninitialized: false,
     unset: "destroy",
@@ -52,6 +90,7 @@ app.use(
       secure: config.env === "production",
       httpOnly: true,
       sameSite: "lax",
+      path: config.appBasePath,
     },
   }),
 );
@@ -60,11 +99,23 @@ app.use(
 const currentPathMiddleware = require("./middleware/currentPath");
 app.use(currentPathMiddleware);
 
+app.use((req, res, next) => {
+  res.locals.basePath = config.appBasePath;
+  res.locals.withBasePath = config.withBasePath;
+  next();
+});
+
+if (config.appBasePath !== "/") {
+  app.get("/", (req, res) => {
+    res.redirect(config.appBasePath);
+  });
+}
+
 // 静态文件
-app.use(express.static(path.join(__dirname, "public")));
+app.use(config.appBasePath, express.static(path.join(__dirname, "public")));
 
 // 路由
-app.use("/", routes);
+app.use(config.appBasePath, routes);
 
 // 错误处理中间件
 app.use((err, req, res, next) => {

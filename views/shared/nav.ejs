@@ -1,3 +1,6 @@
+<%
+const iconMaskPath = withBasePath('/icons/fav.svg');
+%>
 <nav
   class="px-4 py-4 bg-transparent flex gap-4 h-24 w-full items-center lg:px-16"
 >
@@ -10,7 +13,7 @@
         role="img"
         aria-label="AuthBridge Logo"
         class="block h-full w-full"
-        style="-webkit-mask: url('/icons/fav.svg') center / contain no-repeat; mask: url('/icons/fav.svg') center / contain no-repeat; background-color: currentColor;"
+        style="-webkit-mask: url('<%= iconMaskPath %>') center / contain no-repeat; mask: url('<%= iconMaskPath %>') center / contain no-repeat; background-color: currentColor;"
       ></span>
     </div>
     <span class="line-height-snug font-serif m-0 flex flex-col">
@@ -25,7 +28,7 @@
 
   <!-- 首页链接 -->
   <a
-    href="/"
+    href="<%= withBasePath('/') %>"
     class="font-serif font-size-xl <%= isHomePage ? 'text-light-primary dark:text-dark-primary font-bold' : 'text-light-onSurface dark:text-dark-onSurface font-medium' %>"
   >
     首页
@@ -33,7 +36,7 @@
 
   <!-- 关于链接 -->
   <a
-    href="/about"
+    href="<%= withBasePath('/about') %>"
     class="font-serif font-size-xl ml-4 <%= isAboutPage ? 'text-light-primary dark:text-dark-onSurfaceVariant font-bold' : 'text-light-onSurface dark:text-dark-onSurface font-medium' %>"
   >
     关于

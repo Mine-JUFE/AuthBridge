@@ -268,7 +268,6 @@ const callbackWhitelistMap = normalizedAppList.reduce((acc, app) => {
   return acc;
 }, {});
 
-const resolvedAppUrl = process.env.APP_URL || "http://localhost:3000";
 const casBaseUrl = process.env.CAS_BASE_URL || "https://cas.jxufe.edu.cn/cas";
 
 function normalizeOrigin(urlString) {
@@ -279,10 +278,74 @@ function normalizeOrigin(urlString) {
   }
 }
 
+function normalizeAppUrl(rawUrl) {
+  try {
+    const urlObj = new URL(rawUrl || "http://localhost:3000");
+    if (urlObj.protocol !== "http:" && urlObj.protocol !== "https:") {
+      throw new Error("APP_URL 协议必须是 http/https");
+    }
+
+    const normalizedPath = (urlObj.pathname || "/").replace(/\/+$|^$/, "/");
+    const appBasePath = normalizedPath === "/"
+      ? "/"
+      : normalizedPath.replace(/\/+$/, "");
+
+    urlObj.pathname = appBasePath === "/" ? "/" : `${appBasePath}/`;
+    urlObj.search = "";
+    urlObj.hash = "";
+
+    const appUrl = urlObj.toString().replace(/\/$/, "");
+
+    return {
+      appUrl,
+      appBasePath,
+    };
+  } catch (_error) {
+    return {
+      appUrl: "http://localhost:3000",
+      appBasePath: "/",
+    };
+  }
+}
+
+function withBasePath(basePath, inputPath) {
+  const cleanInput = String(inputPath || "").trim();
+  if (!cleanInput || cleanInput === "/") {
+    return basePath;
+  }
+
+  const normalizedInput = cleanInput.startsWith("/") ? cleanInput : `/${cleanInput}`;
+  return basePath === "/"
+    ? normalizedInput
+    : `${basePath}${normalizedInput}`;
+}
+
+function buildAppUrl(appUrl, appBasePath, inputPath) {
+  return new URL(withBasePath(appBasePath, inputPath), appUrl).toString();
+}
+
+function parseBooleanEnv(input, defaultValue = false) {
+  if (input === undefined || input === null || String(input).trim() === "") {
+    return defaultValue;
+  }
+  const normalized = String(input).trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+const normalizedApp = normalizeAppUrl(process.env.APP_URL || "http://localhost:3000");
+const resolvedAppUrl = normalizedApp.appUrl;
+const resolvedAppBasePath = normalizedApp.appBasePath;
+
 const configuredCasServiceUrl = process.env.CAS_SERVICE_URL || resolvedAppUrl;
 const resolvedCasServiceUrl = normalizeOrigin(configuredCasServiceUrl) === normalizeOrigin(casBaseUrl)
   ? resolvedAppUrl
   : configuredCasServiceUrl;
+
+const sessionStoreType = String(process.env.SESSION_STORE || "").trim().toLowerCase();
+const sessionUseRedis = parseBooleanEnv(
+  process.env.SESSION_USE_REDIS,
+  sessionStoreType ? sessionStoreType === "redis" : true,
+);
 
 module.exports = {
   // 环境配置
@@ -290,6 +353,9 @@ module.exports = {
   port: parseInt(process.env.PORT, 10) || 3000,
   appName: process.env.APP_NAME || "AuthBridge",
   appUrl: resolvedAppUrl,
+  appBasePath: resolvedAppBasePath,
+  withBasePath: (inputPath) => withBasePath(resolvedAppBasePath, inputPath),
+  buildAppUrl: (inputPath) => buildAppUrl(resolvedAppUrl, resolvedAppBasePath, inputPath),
 
   // CAS配置
   cas: {
@@ -349,6 +415,10 @@ module.exports = {
     name: process.env.SESSION_NAME || "authbridge.sid",
     secret: secretConfig.sessionSecret,
     ttlMs: parseInt(process.env.SESSION_TTL_MS, 10) || 10 * 60 * 1000, // 10分钟
+    store: sessionStoreType || (sessionUseRedis ? "redis" : "memory"),
+    useRedis: sessionUseRedis,
+    redisUrl: process.env.REDIS_URL || "redis://127.0.0.1:6379",
+    redisPrefix: process.env.REDIS_PREFIX || "authbridge:sess:",
   },
 
   // 回调应用配置

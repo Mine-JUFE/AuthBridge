@@ -1,19 +1,3 @@
 <% const pagedata = { maintitle: '404 - Not Found', secondtitle: '页面未找到',
-body: `
-<p>话说你怎么溜达到这里来了？</p>
-<p>建议你检查一下路径，或者回到主页。</p>
-<a
-  href="/"
-  class="inline-block px-6 py-3 text-white rounded-lg hover:opacity-90 transition duration-300"
-  style="
-    background-color: color-mix(
-      in oklab,
-      var(--colors-light-primary) var(--un-text-opacity),
-      transparent
-    );
-  "
->
-  返回主页
-</a>
-` }; %>
+body: include('./pages/error.ejs') }; %>
 <%- include('./shared/layout',pagedata) %>
