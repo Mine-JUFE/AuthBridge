@@ -4,7 +4,7 @@ const iconMaskPath = withBasePath('/icons/fav.svg');
 <nav
   class="px-4 py-4 bg-transparent flex gap-4 h-24 w-full items-center lg:px-16"
 >
-  <a class="flex gap-2 h-8 items-center lg:gap-6 text-decoration-none" href="#">
+  <a class="flex gap-2 h-8 items-center lg:gap-6 text-decoration-none" href="<%= withBasePath('/') %>">
     <div
       data-hk="000000010000000011"
       class="color-light-primary h-8 w-8 dark:color-dark-primary"
@@ -37,7 +37,7 @@ const iconMaskPath = withBasePath('/icons/fav.svg');
   <!-- 关于链接 -->
   <a
     href="<%= withBasePath('/about') %>"
-    class="font-serif font-size-xl ml-4 <%= isAboutPage ? 'text-light-primary dark:text-dark-onSurfaceVariant font-bold' : 'text-light-onSurface dark:text-dark-onSurface font-medium' %>"
+    class="font-serif font-size-xl ml-4 <%= isAboutPage ? 'text-light-primary dark:text-dark-primary font-bold' : 'text-light-onSurface dark:text-dark-onSurface font-medium' %>"
   >
     关于
   </a>

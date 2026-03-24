@@ -195,20 +195,44 @@ class CASConnectService {
     validateUrl.searchParams.set('service', serviceUrl);
     validateUrl.searchParams.set('ticket', ticket);
 
+    const requestOnce = (timeoutMs) => axios.get(validateUrl.toString(), {
+      timeout: timeoutMs,
+      validateStatus: () => true
+    });
+
     let response;
     try {
-      response = await axios.get(validateUrl.toString(), {
-        timeout: config.cas.timeoutMs,
-        validateStatus: () => true
-      });
+      response = await requestOnce(config.cas.timeoutMs);
     } catch (error) {
-      return {
-        ok: false,
-        status: 500,
-        message: '请求CAS校验接口失败',
-        error: error.message,
-        requestUrl: validateUrl.toString()
-      };
+      const isTimeout = error && (
+        error.code === 'ECONNABORTED'
+        || String(error.message || '').toLowerCase().includes('timeout')
+      );
+
+      if (!isTimeout) {
+        return {
+          ok: false,
+          status: 500,
+          message: '请求CAS校验接口失败',
+          error: error.message,
+          requestUrl: validateUrl.toString()
+        };
+      }
+
+      const retryTimeout = Math.max(config.cas.timeoutMs * 2, 15000);
+      console.warn(`CAS校验请求超时，准备重试: timeout=${config.cas.timeoutMs}ms -> ${retryTimeout}ms`);
+
+      try {
+        response = await requestOnce(retryTimeout);
+      } catch (retryError) {
+        return {
+          ok: false,
+          status: 500,
+          message: '请求CAS校验接口失败',
+          error: `首次: ${error.message}; 重试: ${retryError.message}`,
+          requestUrl: validateUrl.toString()
+        };
+      }
     }
 
     if (response.status !== 200) {

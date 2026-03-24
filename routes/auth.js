@@ -65,6 +65,47 @@ function getCasCallbackServiceUrl() {
   return config.buildAppUrl(config.casClient.paths.validate);
 }
 
+function getCasCallbackServiceUrlWithContext({ appid, returnMode, callback }) {
+  const serviceUrl = new URL(getCasCallbackServiceUrl());
+
+  if (appid) {
+    serviceUrl.searchParams.set('appid', String(appid));
+  }
+
+  if (returnMode) {
+    serviceUrl.searchParams.set('mode', String(returnMode));
+  }
+
+  if (callback) {
+    serviceUrl.searchParams.set('callback', String(callback));
+  }
+
+  return serviceUrl.toString();
+}
+
+function deriveServiceUrlFromCallbackRequest(req) {
+  if (!req) {
+    return null;
+  }
+
+  try {
+    const serviceUrl = new URL(config.buildAppUrl(req.path || config.casClient.paths.validate));
+    const originalUrl = String(req.originalUrl || '');
+    const queryPart = originalUrl.includes('?') ? originalUrl.slice(originalUrl.indexOf('?') + 1) : '';
+    const params = new URLSearchParams(queryPart);
+
+    params.delete('ticket');
+
+    params.forEach((value, key) => {
+      serviceUrl.searchParams.append(key, value);
+    });
+
+    return serviceUrl.toString();
+  } catch (_error) {
+    return null;
+  }
+}
+
 function getIncomingTarget(req) {
   const redirectKey = (config.cas && config.cas.redirectKey) || 'service';
   return req.query[redirectKey] || req.query.target || null;
@@ -419,7 +460,11 @@ router.get('/login', (req, res) => {
     console.log(`🔐 登录请求 - State: ${maskValue(state)}, appid: ${appid || '手动模式'}, mode: ${returnMode || 'auto'}`);
 
     // service 必须和 connect-cas2 校验阶段的 service 完全一致，否则 CAS 会返回 403
-    const serviceUrl = getCasCallbackServiceUrl();
+    const serviceUrl = getCasCallbackServiceUrlWithContext({
+      appid,
+      returnMode,
+      callback,
+    });
     req.session.casFixedServiceUrl = serviceUrl;
     
     // 获取CAS登录URL
@@ -427,8 +472,22 @@ router.get('/login', (req, res) => {
     
     console.log(`重定向到CAS: ${sanitizeUrlForLog(loginUrl)}`);
     
-    // 重定向到CAS登录
-    res.redirect(loginUrl);
+    // 显式保存会话后再跳转，避免在外部存储下丢失 mode/appid/callback
+    req.session.save((saveError) => {
+      if (saveError) {
+        logError('保存登录会话失败', saveError, {
+          path: req.originalUrl,
+          query: sanitizeValue(req.query),
+        });
+        return res.status(500).render('error', {
+          title: '登录失败',
+          message: '会话保存失败，请稍后重试'
+        });
+      }
+
+      // 重定向到CAS登录
+      return res.redirect(loginUrl);
+    });
     
   } catch (error) {
     logError('登录入口错误', error, {
@@ -464,11 +523,13 @@ const casServiceValidateHandler = async (req, res) => {
       );
     }
 
+    const isDuplicateTicketReplay = Boolean(req.session.cas && req.session.cas.st === ticket);
+
     // CAS 的 ST 是一次性的；若用户刷新带 ticket 的回调页，直接复用已登录会话
-    if (req.session.cas && req.session.cas.st === ticket) {
+    if (isDuplicateTicketReplay) {
       console.log(`检测到重复ticket回调，跳过二次验签: ${maskValue(ticket, 4, 4)}`);
     } else {
-      const serviceUrl = req.session.casFixedServiceUrl || getCasCallbackServiceUrl();
+      const serviceUrl = req.session.casFixedServiceUrl || deriveServiceUrlFromCallbackRequest(req) || getCasCallbackServiceUrl();
       const validation = await casService.validateTicket(ticket, serviceUrl);
       if (!validation.ok) {
         logError('CAS票据校验失败', new Error('CAS ticket validation failed'), {
@@ -539,13 +600,37 @@ const casServiceValidateHandler = async (req, res) => {
     }
     
     // 获取目标应用
-    const targetApp = req.session.targetApp || req.query.appid || req.query.app || null;
-    const callbackUrl = req.session.callbackUrl || req.query.callback || null;
-    const requestedReturnMode = normalizeReturnMode(
+    let targetApp = req.session.targetApp || req.query.appid || req.query.app || null;
+    let callbackUrl = req.session.callbackUrl || req.query.callback || null;
+    let requestedReturnMode = normalizeReturnMode(
       req.session.returnMode || req.query.mode || req.query.return,
       null,
     );
+
+    const replayContext = req.session.lastAuthFlow;
+    if (
+      isDuplicateTicketReplay
+      && replayContext
+      && replayContext.ticket === ticket
+      && !targetApp
+    ) {
+      targetApp = replayContext.targetApp || targetApp;
+      callbackUrl = replayContext.callbackUrl || callbackUrl;
+      requestedReturnMode = normalizeReturnMode(replayContext.returnMode, requestedReturnMode);
+      console.log(`复用上次回调上下文: appid=${targetApp || '无'}`);
+    }
+
     const resolvedReturnMode = requestedReturnMode || (targetApp ? 'callback' : 'page');
+
+    if (resolvedReturnMode === 'callback' && targetApp) {
+      req.session.lastAuthFlow = {
+        ticket,
+        targetApp,
+        callbackUrl: callbackUrl || null,
+        returnMode: 'callback',
+        updatedAt: Date.now(),
+      };
+    }
 
     await onCasLoginSuccess(req, res, {
       studentId,
@@ -554,9 +639,12 @@ const casServiceValidateHandler = async (req, res) => {
     });
     
     // 清理临时数据
-    delete req.session.targetApp;
-    delete req.session.callbackUrl;
-    delete req.session.returnMode;
+    const keepCallbackContext = resolvedReturnMode === 'callback' && targetApp;
+    if (!keepCallbackContext) {
+      delete req.session.targetApp;
+      delete req.session.callbackUrl;
+      delete req.session.returnMode;
+    }
     const redirectTarget = resolvePostLoginRedirect(req);
     delete req.session.redirectTarget;
     
