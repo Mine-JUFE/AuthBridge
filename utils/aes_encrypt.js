@@ -20,18 +20,20 @@ export function encryptText(plaintext, keyPath = '../keys/aes_key') {
     const aesKeyHex = fs.readFileSync(resolvedKeyPath, 'utf8').trim();
     const aesKey = Buffer.from(aesKeyHex, 'hex'); // 转回Buffer
 
-    // 2. 生成随机IV（16字节）
-    const iv = crypto.randomBytes(16);
+    // 2. 生成随机IV（GCM推荐12字节）
+    const iv = crypto.randomBytes(12);
 
-    // 3. AES-CBC加密文本
-    const cipher = crypto.createCipheriv('aes-128-cbc', aesKey, iv);
+    // 3. AES-GCM加密文本
+    const cipher = crypto.createCipheriv('aes-128-gcm', aesKey, iv);
     let encryptedText = cipher.update(plaintext, 'utf8', 'base64');
     encryptedText += cipher.final('base64');
+    const tag = cipher.getAuthTag();
 
     // 4. 整理加密结果（仅返回，不保存）
     const encryptedResult = {
       encryptedText: encryptedText,       // Base64格式密文
       iv: iv.toString('base64'),          // Base64格式IV（解密必需）
+      tag: tag.toString('base64'),        // Base64格式认证标签（GCM校验必需）
       encryptTime: new Date().toISOString(), // 加密时间（可选）
       keyLength: aesKey.length            // 密钥长度（可选，便于解密端校验）
     };

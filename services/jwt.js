@@ -133,6 +133,7 @@ class JWTService {
     return {
       sub: encrypted.encryptedText,
       iv: encrypted.iv,
+      tag: encrypted.tag,
       enc: "aes",
       enc_alg: encrypted.alg,
       appid,
@@ -214,7 +215,12 @@ class JWTService {
           throw new Error("缺少 app AES key");
         }
 
-        result.studentId = decryptStudentIdWithAes(decoded.sub, decoded.iv, appSecret.aes_key);
+        result.studentId = decryptStudentIdWithAes(
+          decoded.sub,
+          decoded.iv,
+          decoded.tag,
+          appSecret.aes_key,
+        );
       } catch (error) {
         logError("JWT AES 解密失败", error, {
           appid: decoded.appid,

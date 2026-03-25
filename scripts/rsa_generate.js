@@ -26,7 +26,7 @@ function generateRSAKeyPair(modulusLength, privateKeyPath, publicKeyPath) {
       type: 'pkcs8', // 私钥标准格式（PKCS#8）
       format: 'pem'
       // 生产环境建议开启密码保护（取消注释并设置密码）
-      // cipher: 'aes-256-cbc',
+      // cipher: 'aes-256-gcm',
       // passphrase: '你的私钥保护密码'
     }
   });
