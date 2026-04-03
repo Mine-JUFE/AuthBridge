@@ -2,11 +2,9 @@ const jwt = require("jsonwebtoken");
 const config = require("../config");
 const {
   encryptStudentIdWithAes,
-  decryptStudentIdWithAes,
 } = require("../utils/jwt_aes_crypto");
 const {
   encryptStudentIdWithEcc,
-  decryptStudentIdWithEcc,
 } = require("../utils/jwt_ecc_crypto");
 const { logError } = require("../utils/error_handler");
 
@@ -97,7 +95,12 @@ class JWTService {
     return secret;
   }
 
+  buildBaseClaims() {
+    return {};
+  }
+
   buildPayload(studentId, appid, appConfig, appSecret) {
+    const baseClaims = this.buildBaseClaims();
     const encryptType = appConfig.encrypt_type || "aes";
     if (encryptType === "ecc") {
       const eccPublicKey = this.getSecretField(appSecret, ["ecc_public_key", "eccPublicKey"]);
@@ -114,13 +117,7 @@ class JWTService {
         tag: encrypted.tag,
         epk: encrypted.epk,
         enc: "ecc",
-        enc_alg: encrypted.alg,
-        curve: encrypted.curve,
-        appid,
-        iat: Math.floor(Date.now() / 1000),
-        iss: config.jwt.issuer,
-        aud: appConfig.app_aud || appid,
-        jti: this.generateJTI(),
+        ...baseClaims,
       };
     }
 
@@ -135,19 +132,16 @@ class JWTService {
       iv: encrypted.iv,
       tag: encrypted.tag,
       enc: "aes",
-      enc_alg: encrypted.alg,
-      appid,
-      iat: Math.floor(Date.now() / 1000),
-      iss: config.jwt.issuer,
-      aud: appConfig.app_aud || appid,
-      jti: this.generateJTI(),
+      ...baseClaims,
     };
   }
 
   signPayload(payload, appid) {
+    const appConfig = this.getAppConfig(appid) || {};
+    const expiresIn = appConfig.jwt_expires_in || config.jwt.defaultExpiresIn || config.jwt.expiresIn;
     const jwtSecret = this.resolveJwtSecretForApp(appid);
     return jwt.sign(payload, jwtSecret, {
-      expiresIn: config.jwt.expiresIn,
+      expiresIn,
     });
   }
 
@@ -165,7 +159,7 @@ class JWTService {
     const payload = this.buildPayload(studentId, appid, appConfig, appSecret);
     const token = this.signPayload(payload, appid);
 
-    console.log(`🔐 为 ${this.maskValue(studentId)} 生成应用 JWT，appid: ${appid}, aud: ${payload.aud}`);
+    console.log(`🔐 为 ${this.maskValue(studentId)} 生成应用 JWT，appid: ${appid}`);
     return token;
   }
 
@@ -179,14 +173,21 @@ class JWTService {
 
   verify(token, options = {}) {
     try {
-      const unsafeDecoded = jwt.decode(token) || {};
-      const tokenAppId = typeof unsafeDecoded.appid === "string" ? unsafeDecoded.appid : null;
-      const jwtSecret = this.resolveJwtSecretForApp(tokenAppId);
-      const payload = jwt.verify(token, jwtSecret, {
-        issuer: config.jwt.issuer,
-        ...options,
-      });
-      return payload;
+      const appIds = Object.keys(config.appSecretMap || {});
+      if (!appIds.length) {
+        throw new Error("未配置任何应用密钥，无法验证 JWT");
+      }
+
+      for (const appId of appIds) {
+        try {
+          const jwtSecret = this.resolveJwtSecretForApp(appId);
+          return jwt.verify(token, jwtSecret, options);
+        } catch (innerError) {
+          continue;
+        }
+      }
+
+      throw new Error("JWT 验证失败，未匹配到可用签名密钥");
     } catch (error) {
       logError("JWT 验证失败", error);
       return null;
@@ -208,61 +209,8 @@ class JWTService {
       studentId: null,
     };
 
-    if (decoded.enc === "aes" && decoded.appid) {
-      try {
-        const appSecret = this.getAppSecret(decoded.appid);
-        if (!appSecret || !appSecret.aes_key) {
-          throw new Error("缺少 app AES key");
-        }
-
-        result.studentId = decryptStudentIdWithAes(
-          decoded.sub,
-          decoded.iv,
-          decoded.tag,
-          appSecret.aes_key,
-        );
-      } catch (error) {
-        logError("JWT AES 解密失败", error, {
-          appid: decoded.appid,
-        });
-        return {
-          valid: false,
-          error: "JWT 解密失败",
-          payload: decoded,
-        };
-      }
-    }
-
-    if (decoded.enc === "ecc" && decoded.appid) {
-      try {
-        const appSecret = this.getAppSecret(decoded.appid);
-        const eccPrivateKey = this.getSecretField(appSecret, ["ecc_private_key", "eccPrivateKey"]);
-        if (!eccPrivateKey) {
-          return {
-            valid: true,
-            payload: decoded,
-            studentId: null,
-            note: "ECC 模式已验签；当前服务未配置 ecc_private_key，跳过明文解密",
-          };
-        }
-
-        result.studentId = decryptStudentIdWithEcc(
-          decoded.sub,
-          decoded.iv,
-          decoded.tag,
-          decoded.epk,
-          eccPrivateKey,
-        );
-      } catch (error) {
-        logError("JWT ECC 解密失败", error, {
-          appid: decoded.appid,
-        });
-        return {
-          valid: false,
-          error: "JWT 解密失败",
-          payload: decoded,
-        };
-      }
+    if (decoded.enc === "aes" || decoded.enc === "ecc") {
+      result.note = "JWT 已验签；当前实现不再依赖 appid 做本地解密";
     }
 
     return result;
@@ -275,10 +223,6 @@ class JWTService {
       logError("JWT 解码失败", error);
       return null;
     }
-  }
-
-  generateJTI() {
-    return "jti_" + Date.now() + "_" + Math.random().toString(36).slice(2, 11);
   }
 
   isExpiringSoon(token, thresholdSeconds = 300) {

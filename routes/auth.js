@@ -763,7 +763,6 @@ router.get('/jwt', (req, res) => {
     title: 'JWT令牌',
     token,
     studentId,
-    expiresIn: config.jwt.expiresIn
   });
 });
 

@@ -104,6 +104,18 @@ function normalizeEncryptType(rawType) {
   return "aes";
 }
 
+function normalizeJwtExpiresIn(rawValue, fallback = "1h") {
+  if (typeof rawValue === "number" && Number.isFinite(rawValue) && rawValue > 0) {
+    return rawValue;
+  }
+
+  if (typeof rawValue === "string" && rawValue.trim()) {
+    return rawValue.trim();
+  }
+
+  return fallback;
+}
+
 function normalizeHttpUrl(raw) {
   if (typeof raw !== "string" || !raw.trim()) {
     return null;
@@ -147,6 +159,8 @@ function normalizeAppList(rawConfig) {
       ? rawConfig
       : [];
 
+  const defaultJwtExpiresIn = normalizeJwtExpiresIn(process.env.JWT_EXPIRES_IN, "1h");
+
   const fallbackFromEnv = (process.env.WHITELISTED_APPS || "app1,app2")
     .split(",")
     .filter((item) => item && item.trim())
@@ -167,6 +181,7 @@ function normalizeAppList(rawConfig) {
           appid,
           app_aud: appid,
           encrypt_type: "aes",
+          jwt_expires_in: defaultJwtExpiresIn,
         };
       }
 
@@ -190,6 +205,10 @@ function normalizeAppList(rawConfig) {
         callback: normalizeHttpUrl(item.callback),
         callback_whitelist: normalizeCallbackWhitelist(item.callback_whitelist, item.callback),
         encrypt_type: normalizeEncryptType(item.encrypt_type),
+        jwt_expires_in: normalizeJwtExpiresIn(
+          item.jwt_expires_in,
+          defaultJwtExpiresIn,
+        ),
       };
     })
     .filter(Boolean);
@@ -405,7 +424,10 @@ module.exports = {
 
   // JWT配置
   jwt: {
-    expiresIn: process.env.JWT_EXPIRES_IN || "1h",
+    // 作为每个应用未显式配置 jwt_expires_in 时的回退值
+    defaultExpiresIn: normalizeJwtExpiresIn(process.env.JWT_EXPIRES_IN, "1h"),
+    // 兼容历史调用
+    expiresIn: normalizeJwtExpiresIn(process.env.JWT_EXPIRES_IN, "1h"),
     issuer: process.env.JWT_ISSUER || process.env.APP_NAME || "AuthBridge",
     defaultAppId: process.env.DEFAULT_APP_ID || null,
   },

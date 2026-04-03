@@ -70,6 +70,7 @@ cp secret.template.json secret.json
 		{
 			"appid": "app2",
 			"app_aud": "app2-client",
+			"jwt_expires_in": "15m",
 			"encrypt_type": "ecc",
 			"callback": "https://app2.example.com/api/auth/callback",
 			"callback_whitelist": [
@@ -83,6 +84,8 @@ cp secret.template.json secret.json
 说明：
 - `callback` 为默认回调地址
 - `callback_whitelist` 用于白名单校验，必须命中
+- `jwt_expires_in` 为该应用 JWT 的独立有效期（支持 `15m`、`1h`、`7d` 或秒数）
+- 未配置 `jwt_expires_in` 时，回退到 `.env` 的 `JWT_EXPIRES_IN`
 
 ### 3.3 secret.json
 
