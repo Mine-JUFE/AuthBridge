@@ -1,5 +1,4 @@
-
-    (function() {
+(function() {
         const tokenEl = document.getElementById('jwt-token');
         const copyBtn = document.getElementById('copy-btn');
         const emptyState = document.getElementById('empty-state');
@@ -140,4 +139,20 @@
             selection.removeAllRanges();
             selection.addRange(range);
         });
+        const qrImg = document.getElementById('qrcode');
+        QRCode.toDataURL(token, {
+            width: 200,    // 尺寸
+            margin: 1      // 白边大小
+        }).then(base64 => {
+            qrImg.src = base64;
+        });
+        qrImg.addEventListener('click', () => {
+            if (!qrImg.src) return;
+
+            const a = document.createElement('a');
+            a.download = 'token-qrcode.png';
+            a.href = qrImg.src;
+            a.click();
+        });
     })();
+

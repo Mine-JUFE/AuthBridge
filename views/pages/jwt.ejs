@@ -100,6 +100,10 @@
 <div class="token-card">
     <h2 class="token-title"><span style="color: red">注意：</span>本令牌为AES加密</h2>
     <h2 class="token-title">后端应用可以解密您的学号</h2>
+    <h2 class="token-title">二维码，点击图片下载</h2>
+    <div class="flex justify-center">
+        <img id="qrcode" style="width:200px;height:200px;" alt="">
+    </div>
     <!-- 令牌容器 + 外部复制按钮 -->
     <div class="token-container">
     <div id="jwt-token" class="token-scroll" spellcheck="false" data-token="<%- token || '' %>">
@@ -116,6 +120,9 @@
     <div id="empty-state" class="mt-4 text-center py-4 text-gray-500 hidden">
         <p class="text-sm">暂无可用令牌</p>
     </div>
+
+    </div>
 </div>
-</div>
+<script src="https://cdn.bootcdn.net/ajax/libs/qrcode/1.5.1/qrcode.min.js"></script>
 <script src="<%= withBasePath('/scripts/token.js') %>"></script>
+
