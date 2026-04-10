@@ -4,7 +4,10 @@ const session = require("express-session");
 const connectRedis = require("connect-redis");
 const { createClient } = require("redis");
 const path = require("path");
-
+const cookieParser = require('cookie-parser');
+const i18next = require('i18next');
+const middleware = require('i18next-http-middleware');
+const Backend = require('i18next-fs-backend');
 // 导入模块
 const config = require("./config");
 const routes = require("./routes");
@@ -51,12 +54,49 @@ if (config.env === "production") {
   app.set("trust proxy", parseInt(process.env.TRUST_PROXY_HOPS || "1", 10));
 }
 
-// 基本中间件
+
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(cookieParser()); // 必须在 i18n 之前！
+
+// 全局变量
 app.locals.basePath = config.appBasePath;
 app.locals.withBasePath = config.withBasePath;
+
+
+i18next
+    .use(Backend)
+    .use(middleware.LanguageDetector)
+    .init({
+        fallbackLng: 'zh',
+    supportedLngs: ['en', 'zh'],
+        preload: ['en', 'zh'],
+        ns: ['translation'],
+        defaultNS: 'translation',
+        detection: {
+          order: ['cookie', 'header'],
+            lookupCookie: 'lang',
+            cookieMinutes: 60 * 24 * 30,
+          cookieSecure: config.env === 'production',
+            cookieHttpOnly: false,
+        },
+        backend: {
+          loadPath: __dirname + '/locales/{{lng}}.json',
+        },
+    });
+
+
+app.use(middleware.handle(i18next));
+
+// 4. 强行把 t() 注入所有 EJS 模板
+app.use((req, res, next) => {
+    res.locals.t = req.t;
+  const resolvedLanguage = req.resolvedLanguage || req.language || 'zh';
+  res.locals.currentLanguage = resolvedLanguage;
+  res.locals.htmlLang = resolvedLanguage === 'en' ? 'en' : 'zh-CN';
+    next();
+});
 
 // 基础安全响应头
 app.disable("x-powered-by");

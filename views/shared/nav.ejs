@@ -2,7 +2,7 @@
 const iconMaskPath = withBasePath('/icons/fav.svg');
 %>
 <nav
-  class="px-4 py-4 bg-transparent flex gap-4 h-24 w-full items-center lg:px-16"
+  class="flex flex-nowrap px-4 py-4 flex-shrink-0 bg-transparent gap-4 h-24 w-full items-center lg:px-16"
 >
   <a class="flex gap-2 h-8 items-center lg:gap-6 text-decoration-none" href="<%= withBasePath('/') %>">
     <div
@@ -21,24 +21,49 @@ const iconMaskPath = withBasePath('/icons/fav.svg');
         class="text-lg color-light-primary font-bold dark:color-dark-primary"
         >AuthBridge</span>
       <span class="text-sm color-light-tertiary dark:color-dark-tertiary"
-        >认证代理</span>
+        ><%= t('common.brandSubtitle') %></span>
     </span>
   </a>
   <div class="flex-grow-1"></div>
 
-  <!-- 首页链接 -->
-  <a
-    href="<%= withBasePath('/') %>"
-    class="font-serif font-size-xl <%= isHomePage ? 'text-light-primary dark:text-dark-primary font-bold' : 'text-light-onSurface dark:text-dark-onSurface font-medium' %>"
-  >
-    首页
-  </a>
 
-  <!-- 关于链接 -->
-  <a
-    href="<%= withBasePath('/about') %>"
-    class="font-serif font-size-xl ml-4 <%= isAboutPage ? 'text-light-primary dark:text-dark-primary font-bold' : 'text-light-onSurface dark:text-dark-onSurface font-medium' %>"
-  >
-    关于
-  </a>
+  <div class="ml-auto flex items-center gap-4 md:gap-8">
+    <!-- 首页链接 -->
+    <a
+      href="<%= withBasePath('/') %>"
+      class="font-serif text-lg md:text-xl lg:text-2xl <%= isHomePage ? 'text-light-primary dark:text-dark-primary font-bold' : 'text-light-onSurface dark:text-dark-onSurface font-medium' %>"
+    >
+      <%= t('nav.home') %>
+    </a>
+
+    <!-- 关于链接 -->
+    <a
+      href="<%= withBasePath('/about') %>"
+      class="font-serif text-lg md:text-xl lg:text-2xl <%= isAboutPage ? 'text-light-primary dark:text-dark-primary font-bold' : 'text-light-onSurface dark:text-dark-onSurface font-medium' %>"
+    >
+      <%= t('nav.about') %>
+    </a>
+
+    <!-- 语言切换 -->
+    <details class="relative text-light-onSurfaceVariant dark:text-dark-onSurfaceVariant flex-shrink-0">
+      <summary class="list-none flex items-center justify-center gap-2 cursor-pointer select-none text-sm md:text-base lg:text-lg border border-gray-300/40 dark:border-gray-600/60 rounded-full px-3 py-1.5 md:px-4 md:py-2 w-20 md:w-24 lg:w-28">
+        <span aria-hidden="true" class="inline-flex h-4 w-4 md:h-5 md:w-5 items-center justify-center">
+          <svg viewBox="0 0 24 24" class="h-full w-full" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M3 12h18"></path>
+            <path d="M12 3a14 14 0 0 1 0 18"></path>
+            <path d="M12 3a14 14 0 0 0 0 18"></path>
+          </svg>
+        </span>
+        <span class="whitespace-nowrap">
+          <%= currentLanguage === 'en' ? 'EN' : '中文' %>
+        </span>
+      </summary>
+      <div class="absolute right-0 mt-2 min-w-full bg-white/95 dark:bg-gray-900/95 border border-gray-200 dark:border-gray-700 rounded-lg p-2 shadow-sm z-50">
+        <button type="button" data-lang-switch="zh" class="block w-full text-left text-base md:text-lg whitespace-nowrap rounded-lg px-3 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 <%= currentLanguage === 'zh' ? 'font-bold text-light-primary dark:text-dark-primary' : '' %>">中文</button>
+        <button type="button" data-lang-switch="en" class="block w-full text-left text-base md:text-lg whitespace-nowrap rounded-lg px-3 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 <%= currentLanguage === 'en' ? 'font-bold text-light-primary dark:text-dark-primary' : '' %>">EN</button>
+      </div>
+    </details>
+  </div>
 </nav>
+<script src="<%= withBasePath('/scripts/lang-switch.js') %>"></script>

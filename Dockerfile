@@ -30,7 +30,7 @@ COPY --from=builder /app/services   ./services
 COPY --from=builder /app/utils      ./utils
 COPY --from=builder /app/scripts    ./scripts
 COPY --from=builder /app/config     ./config
-
+COPY --from=builder /app/locales    ./locales
 COPY --from=builder /app/server.js  ./
 COPY --from=builder /app/app.js     ./
 

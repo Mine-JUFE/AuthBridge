@@ -3,6 +3,10 @@
         const copyBtn = document.getElementById('copy-btn');
         const emptyState = document.getElementById('empty-state');
         const token = tokenEl.getAttribute('data-token') || tokenEl.textContent;
+        const expiredMessage = tokenEl.getAttribute('data-expired-message') || 'Token expired, please regenerate.';
+        const copyDefaultText = tokenEl.getAttribute('data-copy-default') || 'Copy token';
+        const copySuccessText = tokenEl.getAttribute('data-copy-success') || 'Copied';
+        const copyErrorText = tokenEl.getAttribute('data-copy-error') || 'Copy manually';
 
         function parseJwtPayload(rawToken) {
             const normalizedToken = String(rawToken || '').trim().replace(/^Bearer\s+/i, '');
@@ -46,7 +50,7 @@
 
         // 刷新后如果 token 已过期，直接返回主页并提示
         if (isTokenExpired(token)) {
-            alert('jwt已过期，请重新触发生成');
+            alert(expiredMessage);
             const basePath = document.body && document.body.dataset ? document.body.dataset.basePath : '';
             window.location.replace(basePath || '/');
             return;
@@ -105,16 +109,16 @@
             try {
                 await navigator.clipboard.writeText(token);
                 // 复制成功：仅改文字为「已复制」，移除对勾，保持按钮宽度不变
-                copyBtn.textContent = '已复制';
+                copyBtn.textContent = copySuccessText;
                 copyBtn.classList.add('success');
 
                 setTimeout(() => {
-                    copyBtn.textContent = '复制令牌';
+                    copyBtn.textContent = copyDefaultText;
                     copyBtn.classList.remove('success');
                 }, 2000);
             } catch (err) {
                 // 复制失败：仅改文字为「手动复制」，保持按钮宽度不变
-                copyBtn.textContent = '手动复制';
+                copyBtn.textContent = copyErrorText;
                 copyBtn.classList.add('error');
 
                 // 自动选中全部文本
@@ -125,7 +129,7 @@
                 selection.addRange(range);
 
                 setTimeout(() => {
-                    copyBtn.textContent = '复制令牌';
+                    copyBtn.textContent = copyDefaultText;
                     copyBtn.classList.remove('error');
                 }, 2000);
             }

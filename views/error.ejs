@@ -1,9 +1,9 @@
 <%
 const pagedata = {
-  maintitle: title || '系统错误',
-  secondtitle: message || '请求处理失败，请稍后重试',
+  maintitle: 'error.general.title',
+  secondtitle: 'error.general.subtitle',
   body: 
-include('./pages/error.ejs')
+include('./pages/error.ejs', { detail: message })
 
 };
 %>

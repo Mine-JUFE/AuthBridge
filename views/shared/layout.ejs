@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="<%= htmlLang %>">
   <!-- 引入公共头部 -->
   <%- include('./head'); %>
 
@@ -12,12 +12,12 @@
 
         <section class="title-block">
           <h1 class="text-light-onSurface dark:text-dark-onSurface font-serif">
-            <%= maintitle %>
+            <%= t(maintitle) %>
           </h1>
           <p
             class="text-light-onSurfaceVariant dark:text-dark-onSurfaceVariant"
           >
-            <%= secondtitle %>
+            <%- t(secondtitle, typeof secondtitleParams === 'object' ? secondtitleParams : {}) %>
           </p>
         </section>
         <%- body %>

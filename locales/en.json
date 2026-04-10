@@ -1,0 +1,120 @@
+{
+	"home": {
+		"title": "Home | AuthBridge",
+		"subtitle": "Welcome to AuthBridge"
+	},
+	"about": {
+		"title": "About | AuthBridge",
+		"subtitle": "Introduction to AuthBridge",
+		"long": {
+			"intro": "AuthBridge is a minimalist Express application designed to integrate with CAS and generate JWTs for non-whitelisted internal applications that still require secure authentication.",
+			"featuresTitle": "Features",
+			"feature1Html": "It currently integrates with the <strong>JXUFE CAS system</strong> and supports <strong>single sign-on</strong> and <strong>JWT token generation</strong>. This allows non-whitelisted applications to obtain controlled and secure authentication capabilities without direct CAS login integration.",
+			"feature2Html": "To balance privacy protection and audit requirements, JWTs do not include plaintext <strong>sensitive data such as student IDs or names</strong>. By default, AuthBridge uses <strong>elliptic curve cryptography (ECC)</strong> to reversibly encrypt student IDs. Backend services holding the private key can verify token <strong>validity</strong> and decrypt the original identifier when required for critical business logic or auditing.",
+			"feature3Html": "Typical flow: after CAS login, AuthBridge receives a valid ticket and obtains the user's <strong>student ID</strong>. The student ID is <strong>ECC-encrypted</strong>, then packaged with an <strong>expiration timestamp</strong> and required claims into a <strong>JWT token</strong> returned to the frontend. The overall architecture remains <strong>stateless</strong>.",
+			"feature4Html": "We strictly prohibit plaintext student ID leakage. Downstream services are required to use <strong>HTTPS</strong> for transport security and are periodically audited for <strong>security controls</strong>. We also provide <strong>security recommendations and best practices</strong> for better data protection.",
+			"feature5Html": "For applications that cannot easily adopt ECC, we also provide an <strong>AES-based option</strong>. While this may be easier to integrate in some cases, it is generally weaker than ECC in terms of key management risk. If AES keys are managed improperly, sensitive data exposure may occur. Therefore, AES is recommended only when <strong>ECC is not feasible</strong>, with strict key management controls in place.",
+			"feature6Html": "<strong>The CAS design ensures we never obtain user passwords or equivalent credentials.</strong> We also <strong>review and update security controls regularly</strong> to address new threats.",
+			"termsTitle": "Terminology",
+			"termsIntro": "While using AuthBridge, you may encounter several technical terms. Here is a concise introduction:",
+			"termCasHtml": "<strong>CAS (Central Authentication Service)</strong> is a <strong>single sign-on (SSO) standard</strong> that enables <strong>one-time login, multi-system access</strong>. Users authenticate once via a centralized CAS server, and connected applications validate login state via <strong>tickets</strong> rather than storing user passwords directly.",
+			"termJwtHtml": "<strong>JWT (JSON Web Token)</strong> is a <strong>lightweight authentication token</strong> that stores claims in JSON format and uses digital signatures to prevent tampering. It supports <strong>stateless</strong> authentication with header, payload, and signature sections.",
+			"termEccHtml": "<strong>ECC (Elliptic Curve Cryptography)</strong> is an <strong>asymmetric encryption algorithm</strong> based on elliptic curve mathematics. Compared with RSA, ECC provides equivalent security with shorter keys and better efficiency. In AuthBridge, identifiers are encrypted with an ECC public key and can be decrypted only by trusted backend services holding the private key.",
+			"termAesHtml": "<strong>AES (Advanced Encryption Standard, fallback option in this project)</strong> is a <strong>symmetric encryption algorithm</strong> where encryption and decryption use the same key. It is fast and secure, but key management quality is critical.",
+			"crackDifficultyHtml": "<strong>Cracking difficulty:</strong> ECC-384 security is generally considered comparable to AES-256 levels. There are no known practical attacks that break either algorithm directly under proper implementation and key management.",
+			"cryptoTypesHtml": "Common cryptographic algorithms are broadly divided into three groups:<br><strong>Symmetric encryption</strong> (e.g., AES/SM4): fast, same key for encryption/decryption.<br><strong>Asymmetric encryption</strong> (e.g., RSA/ECC): public/private key pair, stronger identity and key-exchange capabilities but slower computation.<br><strong>Hash functions</strong> (e.g., SHA-2/SHA-3, bcrypt, argon2): one-way operations used for integrity checks or password storage.<br>",
+			"teamTitle": "Project Team",
+			"teamThanks": "Thanks to Simon Shiki for the frontend support, which significantly improved delivery efficiency.",
+			"devTeamTitle": "Development Team",
+			"devTeamDesc1Html": "<strong>Mine-JUFE Team</strong> - project initiator and primary development team",
+			"devTeamDesc2": "Beyond this project, the team is also active in Minecraft ecosystem engineering and creative content.",
+			"website": "Website",
+			"coreDeveloperTitle": "Core Developer",
+			"coreDeveloperDesc1Html": "<strong>Tobby_000</strong> - Mine-JUFE team member, responsible for architecture and core implementation",
+			"coreDeveloperDesc2": "A passionate developer who enjoys solving abstract engineering problems.",
+			"blog": "Personal Blog",
+			"opsTitle": "Operations",
+			"opsTeam": "Operator: Mine-JUFE Team",
+			"opsLocation": "Deployment: Jiangxi University of Finance and Economics intranet server",
+			"repoTitle": "Project Repository",
+			"repoLabel": "Repository:",
+			"contact": "If you have suggestions or feedback about AuthBridge, feel free to contact us via the channels above."
+		},
+		"content": {
+			"intro": "AuthBridge is a lightweight authentication proxy that bridges CAS and downstream applications and issues verifiable JWTs.",
+			"featuresTitle": "Core Capabilities",
+			"feature1": "Supports CAS-based login and transforms identity assertions into standard JWTs for easier integration.",
+			"feature2": "Uses ECC by default to encrypt critical identifiers and minimize plaintext exposure in the data flow.",
+			"feature3": "Supports flexible return modes and callback targets to fit different integration scenarios.",
+			"securityTitle": "Security Notes",
+			"security1": "AuthBridge does not handle user passwords; it only processes CAS tickets and validation results.",
+			"security2": "All callback systems should use HTTPS and implement security auditing and key rotation.",
+			"security3": "For legacy compatibility, AES is available, but ECC remains the recommended default for stronger key management.",
+			"teamTitle": "Project Team",
+			"devTeamTitle": "Development Team",
+			"devTeamDesc": "The Mine-JUFE team leads project initiation, iteration, and long-term maintenance.",
+			"coreDeveloperTitle": "Core Developer",
+			"coreDeveloperDesc": "Tobby_000 is responsible for system architecture and core feature development.",
+			"website": "Website",
+			"blog": "Personal Blog",
+			"opsTitle": "Operations",
+			"opsTeam": "Operator: Mine-JUFE Team",
+			"opsLocation": "Deployment: Jiangxi University of Finance and Economics intranet server",
+			"repoTitle": "Repository",
+			"repoLabel": "Repo:",
+			"contact": "Feedback and suggestions are welcome through the channels above."
+		}
+	},
+	"meta": {
+		"title": "Auth Proxy - AuthBridge"
+	},
+	"common": {
+		"brandSubtitle": "Auth Proxy",
+		"login": "Login",
+		"backHome": "Back to Home"
+	},
+	"nav": {
+		"home": "Home",
+		"about": "About"
+	},
+	"error": {
+		"404": {
+			"title": "404 - Not Found",
+			"subtitle": "Page Not Found",
+			"body1": "You seem to have reached a non-existing page.",
+			"body2": "Please check the URL or return to the home page."
+		},
+		"general": {
+			"title": "System Error",
+			"subtitle": "Request failed, please try again later",
+			"body1": "An error occurred while processing your request.",
+			"body2": "If the problem persists, please contact us via the About page or footer links.",
+			"body3": "You can also report issues through QQ group, channel, or GitHub Issues.",
+			"detailPrefix": "Error detail:"
+		}
+	},
+	"jwt": {
+		"title": "JWT Token",
+		"pageTitle": "JWT Token",
+		"subtitle": "Your student ID is {{studentId}}",
+		"noticePrefix": "Notice: ",
+		"noticeLine1": "This token is encrypted with AES",
+		"noticeLine2": "Backend applications can decrypt your student ID",
+		"noticeLine3": "Click the QR code image to download",
+		"copyToken": "Copy Token",
+		"copied": "Copied",
+		"manualCopy": "Copy Manually",
+		"emptyToken": "No token available",
+		"tokenExpired": "JWT has expired, please generate it again"
+	},
+	"footer": {
+		"copyright": "Copyright © {{year}}",
+		"rights": "All rights reserved.",
+		"disclaimer1": "This website is a third-party CAS application, not an official CAS login site.",
+		"disclaimer2": "It only provides CAS authentication proxy and JWT token generation services.",
+		"maintainedBy": "Developed and maintained by",
+		"maintainedByPrefix": "Developed and maintained by",
+		"maintainedBySuffix": ""
+	}
+}
+
