@@ -17,6 +17,15 @@ const createCsrfOriginGuard = require("./middleware/csrfOriginGuard");
 const app = express();
 const RedisStore = connectRedis.RedisStore || connectRedis.default || connectRedis;
 
+function parseBooleanEnv(input, defaultValue = false) {
+  if (input === undefined || input === null || String(input).trim() === "") {
+    return defaultValue;
+  }
+
+  const normalized = String(input).trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
 function createSessionStore() {
   if (!config.session.useRedis || config.session.store !== "redis") {
     console.log("Session存储: memory（Redis已关闭）");
@@ -60,6 +69,16 @@ app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser()); // 必须在 i18n 之前！
+
+if (parseBooleanEnv(process.env.FORCE_X_FORWARDED_PROTO_HTTPS, false)) {
+  app.use((req, res, next) => {
+    req.headers["x-forwarded-proto"] = "https";
+    if (!req.headers["x-forwarded-port"]) {
+      req.headers["x-forwarded-port"] = "443";
+    }
+    next();
+  });
+}
 
 if (process.env.DEBUG_PROXY_HEADERS === "true") {
   app.use((req, res, next) => {
@@ -140,6 +159,13 @@ app.use((req, res, next) => {
 });
 
 // Session配置
+const sessionCookieSecureMode = String(process.env.SESSION_COOKIE_SECURE || "").trim().toLowerCase();
+const sessionCookieSecure = sessionCookieSecureMode === "true"
+  ? true
+  : sessionCookieSecureMode === "false"
+    ? false
+    : config.env === "production";
+
 app.use(
   session({
     name: config.session.name,
@@ -151,7 +177,7 @@ app.use(
     rolling: true,
     cookie: {
       maxAge: config.session.ttlMs, // 10分钟
-      secure: config.env === "production",
+      secure: sessionCookieSecure,
       httpOnly: true,
       sameSite: "lax",
       path: config.appBasePath,
