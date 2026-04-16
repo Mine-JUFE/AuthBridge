@@ -351,6 +351,17 @@ function parseBooleanEnv(input, defaultValue = false) {
   return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
 }
 
+function parseListEnv(input) {
+  if (input === undefined || input === null) {
+    return [];
+  }
+
+  return String(input)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 const normalizedApp = normalizeAppUrl(process.env.APP_URL || "http://localhost:3000");
 const resolvedAppUrl = normalizedApp.appUrl;
 const resolvedAppBasePath = normalizedApp.appBasePath;
@@ -365,6 +376,8 @@ const sessionUseRedis = parseBooleanEnv(
   process.env.SESSION_USE_REDIS,
   sessionStoreType ? sessionStoreType === "redis" : true,
 );
+const casServerIpWhitelist = parseListEnv(process.env.CAS_SERVER_IP_WHITELIST || process.env.CAS_SLO_TRUSTED_IPS);
+const casXmlMaxBytes = parseInt(process.env.CAS_XML_MAX_BYTES, 10) || 64 * 1024;
 
 module.exports = {
   // 环境配置
@@ -383,6 +396,11 @@ module.exports = {
     version: process.env.CAS_VERSION || "3.0", // 支持 1.0, 2.0, 3.0
     redirectKey: process.env.CAS_REDIRECT_KEY || "service",
     timeoutMs: parseInt(process.env.CAS_TIMEOUT_MS, 10) || 10000,
+    maxXmlBytes: casXmlMaxBytes,
+    serverIpWhitelist: casServerIpWhitelist,
+    slo: {
+      trustedIps: casServerIpWhitelist,
+    },
   },
 
   // CAS客户端配置

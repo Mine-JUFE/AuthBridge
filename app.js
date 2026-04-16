@@ -12,6 +12,7 @@ const Backend = require('i18next-fs-backend');
 const config = require("./config");
 const routes = require("./routes");
 const { logError, createClientErrorPayload } = require("./utils/error_handler");
+const createCsrfOriginGuard = require("./middleware/csrfOriginGuard");
 
 const app = express();
 const RedisStore = connectRedis.RedisStore || connectRedis.default || connectRedis;
@@ -106,7 +107,7 @@ app.use((req, res, next) => {
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' https://cdn.bootcdn.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'",
+    "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'",
   );
   res.setHeader(
     "Permissions-Policy",
@@ -144,6 +145,17 @@ app.use((req, res, next) => {
   res.locals.withBasePath = config.withBasePath;
   next();
 });
+
+app.use(createCsrfOriginGuard({
+  appUrl: config.appUrl,
+  appBasePath: config.appBasePath,
+  cookieNames: [config.session.name, "authbridge.jwt"],
+  exemptPaths: [
+    "/cas/serviceValidate",
+    "/serviceValidate",
+    "/cas/slo",
+  ],
+}));
 
 if (config.appBasePath !== "/") {
   app.get("/", (req, res) => {

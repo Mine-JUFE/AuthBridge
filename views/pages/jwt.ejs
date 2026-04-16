@@ -106,8 +106,8 @@
     </div>
     <!-- 令牌容器 + 外部复制按钮 -->
     <div class="token-container">
-    <div id="jwt-token" class="token-scroll" spellcheck="false" data-token="<%- token || '' %>" data-expired-message="<%= t('jwt.tokenExpired') %>" data-copy-default="<%= t('jwt.copyToken') %>" data-copy-success="<%= t('jwt.copied') %>" data-copy-error="<%= t('jwt.manualCopy') %>">
-        <%- token || '' %>
+    <div id="jwt-token" class="token-scroll" spellcheck="false" data-token="<%= token || '' %>" data-expired-message="<%= t('jwt.tokenExpired') %>" data-copy-default="<%= t('jwt.copyToken') %>" data-copy-success="<%= t('jwt.copied') %>" data-copy-error="<%= t('jwt.manualCopy') %>">
+        <%= token || '' %>
     </div>
 
         <!-- 复制按钮：文本框右侧外部 -->

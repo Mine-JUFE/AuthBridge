@@ -8,6 +8,7 @@ const jwtService = require('../services/jwt');
 const { logError, sanitizeValue } = require('../utils/error_handler');
 
 const isProduction = config.env === 'production';
+const JWT_COOKIE_NAME = 'authbridge.jwt';
 
 function maskValue(value, left = 3, right = 2) {
   const raw = String(value || '');
@@ -218,6 +219,26 @@ function resolvePostLoginRedirect(req) {
   return null;
 }
 
+function getAllowedLogoutServiceWhitelist() {
+  const allWhitelists = Object.keys(config.applistMap || {}).flatMap((appKey) => getAppCallbackWhitelist(appKey));
+  return Array.from(new Set([config.appUrl, ...allWhitelists]));
+}
+
+function resolveSafeLogoutService(req) {
+  const rawService = req && req.query ? req.query.service : null;
+  const requestedService = typeof rawService === 'string' ? rawService.trim() : '';
+
+  if (!requestedService) {
+    return config.appUrl;
+  }
+
+  if (isWhitelistedUrl(requestedService, getAllowedLogoutServiceWhitelist())) {
+    return requestedService;
+  }
+
+  return config.appUrl;
+}
+
 function normalizeReturnMode(rawMode, fallbackMode = null) {
   const mode = String(rawMode || "").trim().toLowerCase();
   if (mode === "callback") {
@@ -270,6 +291,7 @@ function clearTransientAuthState(req) {
   delete req.session.redirectTarget;
   delete req.session.casFixedServiceUrl;
   delete req.session.returnMode;
+  delete req.session.jwtDisplay;
 }
 
 function clearClientAuthCookies(req, res) {
@@ -297,7 +319,7 @@ function clearClientAuthCookies(req, res) {
     });
   });
 
-  const candidateNames = [cookieName, 'connect.sid'];
+  const candidateNames = [cookieName, 'connect.sid', JWT_COOKIE_NAME];
 
   // 同时使用 clearCookie 与显式过期写回，尽可能覆盖浏览器差异
   candidateNames.forEach((name) => {
@@ -355,6 +377,153 @@ function safeAsync(handler) {
   };
 }
 
+function regenerateSession(req) {
+  if (!req.session || typeof req.session.regenerate !== 'function') {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+function saveSession(req) {
+  if (!req.session || typeof req.session.save !== 'function') {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    req.session.save((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+function getJwtExpiryMaxAge(token) {
+  const fallback = config.session && Number(config.session.ttlMs) > 0
+    ? Number(config.session.ttlMs)
+    : 10 * 60 * 1000;
+
+  try {
+    const raw = String(token || '').trim();
+    const parts = raw.split('.');
+    if (parts.length < 2) {
+      return fallback;
+    }
+
+    const payloadPart = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = payloadPart + '='.repeat((4 - (payloadPart.length % 4)) % 4);
+    const decoded = Buffer.from(padded, 'base64').toString('utf8');
+    const payload = JSON.parse(decoded);
+    const exp = Number(payload && payload.exp);
+
+    if (!Number.isFinite(exp)) {
+      return fallback;
+    }
+
+    const maxAge = exp * 1000 - Date.now();
+    if (!Number.isFinite(maxAge) || maxAge <= 0) {
+      return 60 * 1000;
+    }
+
+    return Math.max(60 * 1000, maxAge);
+  } catch (_error) {
+    return fallback;
+  }
+}
+
+function setJwtCookie(res, token) {
+  if (!token) {
+    return;
+  }
+
+  res.cookie(JWT_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'strict',
+    // 不设置 domain，保持 Host-Only Cookie，避免跨子域共享
+    path: config.appBasePath,
+    maxAge: getJwtExpiryMaxAge(token),
+  });
+}
+
+function renderJwtCookieIssuedPage(res, studentId) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  return res.render('error', {
+    title: '登录成功',
+    message: `JWT 已通过 HttpOnly Cookie 安全下发（学号: ${maskValue(studentId, 2, 2)}），不再以明文展示或拼接到URL。`,
+  });
+}
+
+function parseHeaderOrigin(input) {
+  const raw = String(input || '').trim();
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return new URL(raw).origin;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function isSameOriginRequest(req) {
+  const expectedOrigin = parseHeaderOrigin(config.appUrl);
+  if (!expectedOrigin) {
+    return false;
+  }
+
+  const requestOrigin = parseHeaderOrigin(req.get('origin'));
+  if (requestOrigin) {
+    return requestOrigin === expectedOrigin;
+  }
+
+  const refererOrigin = parseHeaderOrigin(req.get('referer'));
+  if (refererOrigin) {
+    return refererOrigin === expectedOrigin;
+  }
+
+  return false;
+}
+
+function renderAutoPostTokenPage(res, callbackUrl, token, studentId) {
+  let callbackOrigin = null;
+  try {
+    callbackOrigin = new URL(callbackUrl).origin;
+  } catch (_error) {
+    callbackOrigin = null;
+  }
+
+  const allowedFormAction = callbackOrigin ? `'self' ${callbackOrigin}` : "'self'";
+  res.setHeader(
+    'Content-Security-Policy',
+    `default-src 'self'; base-uri 'self'; form-action ${allowedFormAction}; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'`,
+  );
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
+  return res.render('auto-post-token', {
+    callbackUrl,
+    token,
+    studentId,
+    timestamp: Date.now(),
+  });
+}
+
 function isLikelyGatewayIntercept403(validation) {
   if (!validation || Number(validation.status) !== 403) {
     return false;
@@ -362,27 +531,6 @@ function isLikelyGatewayIntercept403(validation) {
 
   const body = String(validation.responseBody || '').toLowerCase();
   return body.includes('<html') || body.includes('safeline') || body.includes('waf');
-}
-
-async function handleSloNotification(req, res) {
-  const logoutRequest = req.body && req.body.logoutRequest;
-  if (!logoutRequest) {
-    return res.status(204).end();
-  }
-
-  const result = await casService.handleBackChannelLogout(logoutRequest, req.sessionStore);
-  if (!result.ok) {
-    console.warn('CAS SLO处理失败:', sanitizeValue(result));
-    return res.status(204).end();
-  }
-
-  if (result.destroyed) {
-    console.log(`CAS SLO已销毁本地会话，SessionIndex: ${result.sessionIndex}`);
-  } else {
-    console.log(`CAS SLO命中但未找到本地会话，SessionIndex: ${result.sessionIndex}`);
-  }
-
-  return res.status(204).end();
 }
 
 /**
@@ -399,8 +547,11 @@ async function onCasLoginSuccess(req, res, context) {
  * 登录入口
  * GET /login?appid={appId}&mode={callback|page}&callback={url}
  */
-router.get('/login', (req, res) => {
+router.get('/login', safeAsync(async (req, res) => {
   try {
+    // 每次发起登录都刷新会话ID，降低会话固定攻击风险
+    await regenerateSession(req);
+
     const appid = req.query.appid || req.query.app || null;
     const { callback } = req.query;
     const returnMode = normalizeReturnMode(req.query.mode || req.query.return, null);
@@ -473,21 +624,10 @@ router.get('/login', (req, res) => {
     console.log(`重定向到CAS: ${sanitizeUrlForLog(loginUrl)}`);
     
     // 显式保存会话后再跳转，避免在外部存储下丢失 mode/appid/callback
-    req.session.save((saveError) => {
-      if (saveError) {
-        logError('保存登录会话失败', saveError, {
-          path: req.originalUrl,
-          query: sanitizeValue(req.query),
-        });
-        return res.status(500).render('error', {
-          title: '登录失败',
-          message: '会话保存失败，请稍后重试'
-        });
-      }
+    await saveSession(req);
 
-      // 重定向到CAS登录
-      return res.redirect(loginUrl);
-    });
+    // 重定向到CAS登录
+    return res.redirect(loginUrl);
     
   } catch (error) {
     logError('登录入口错误', error, {
@@ -499,7 +639,7 @@ router.get('/login', (req, res) => {
       message: '系统错误，请稍后重试'
     });
   }
-});
+}));
 
 /**
  * CAS验证回调
@@ -524,6 +664,7 @@ const casServiceValidateHandler = async (req, res) => {
     }
 
     const isDuplicateTicketReplay = Boolean(req.session.cas && req.session.cas.st === ticket);
+    let casUser = req.session.cas ? { ...req.session.cas } : null;
 
     // CAS 的 ST 是一次性的；若用户刷新带 ticket 的回调页，直接复用已登录会话
     if (isDuplicateTicketReplay) {
@@ -552,11 +693,10 @@ const casServiceValidateHandler = async (req, res) => {
         );
       }
 
-      req.session.cas = {
+      casUser = {
         ...validation.userInfo,
         st: ticket
       };
-      casService.registerTicketSession(ticket, req.sessionID);
     }
 
     // 仅在存在预期state时进行校验；手动模式允许无state回调
@@ -576,7 +716,7 @@ const casServiceValidateHandler = async (req, res) => {
     }
 
     // 从CAS获取用户信息
-    const studentId = casService.getStudentId(req);
+    const studentId = casService.extractStudentId(casUser) || casService.getStudentId(req);
     if (!studentId) {
       return renderAuthErrorAndClearSession(
         req,
@@ -592,13 +732,7 @@ const casServiceValidateHandler = async (req, res) => {
       delete req.session.authState;
     }
     delete req.session.casFixedServiceUrl;
-    
-    // 设置用户会话
-    casService.setSession(req, studentId);
-    if (typeof req.session.touch === 'function') {
-      req.session.touch();
-    }
-    
+
     // 获取目标应用
     let targetApp = req.session.targetApp || req.query.appid || req.query.app || null;
     let callbackUrl = req.session.callbackUrl || req.query.callback || null;
@@ -621,6 +755,21 @@ const casServiceValidateHandler = async (req, res) => {
     }
 
     const resolvedReturnMode = requestedReturnMode || (targetApp ? 'callback' : 'page');
+
+    const redirectTarget = resolvePostLoginRedirect(req);
+
+    // 认证成功后再次轮换会话ID，隔离认证前后会话
+    await regenerateSession(req);
+
+    req.session.cas = {
+      ...(casUser || { user: studentId }),
+      st: ticket,
+    };
+    casService.setSession(req, studentId);
+    casService.registerTicketSession(ticket, req.sessionID);
+    if (typeof req.session.touch === 'function') {
+      req.session.touch();
+    }
 
     if (resolvedReturnMode === 'callback' && targetApp) {
       req.session.lastAuthFlow = {
@@ -645,7 +794,6 @@ const casServiceValidateHandler = async (req, res) => {
       delete req.session.callbackUrl;
       delete req.session.returnMode;
     }
-    const redirectTarget = resolvePostLoginRedirect(req);
     delete req.session.redirectTarget;
     
     console.log(`✅ 认证成功 - 学号: ${maskValue(studentId, 2, 2)}, Session: ${maskValue(req.sessionID, 4, 4)}`);
@@ -654,14 +802,15 @@ const casServiceValidateHandler = async (req, res) => {
     // 情况0: 有service/target参数，优先按目标地址跳转
     if (redirectTarget) {
       console.log(`重定向到目标地址: ${sanitizeUrlForLog(redirectTarget)}`);
+      await saveSession(req);
       return res.redirect(redirectTarget);
     }
 
     // 情况1: 选择回调，生成JWT并重定向上级应用
     if (resolvedReturnMode === 'callback' && targetApp) {
       // ===== [JWT 调用] generateForApp =====
-      const token = jwtService.generateForApp(studentId, targetApp);
-      const appCallbackUrl = await casService.getCallbackUrl(targetApp, token, callbackUrl);
+      const token = await jwtService.generateForApp(studentId, targetApp);
+      const appCallbackUrl = await casService.getCallbackUrl(targetApp, callbackUrl);
 
       if (appCallbackUrl && !isAllowedCallbackForApp(targetApp, appCallbackUrl)) {
         return renderAuthErrorAndClearSession(
@@ -674,8 +823,9 @@ const casServiceValidateHandler = async (req, res) => {
       }
       
       if (appCallbackUrl) {
-        console.log(`重定向到应用: ${targetApp}`);
-        return res.redirect(appCallbackUrl);
+        console.log(`通过POST表单跳转到应用: ${targetApp}`);
+        await saveSession(req);
+        return renderAutoPostTokenPage(res, appCallbackUrl, token, studentId);
       }
 
       return renderAuthErrorAndClearSession(
@@ -687,28 +837,17 @@ const casServiceValidateHandler = async (req, res) => {
       );
     }
     
-    // // 情况2: 有自定义回调URL
-    // if (callbackUrl) {
-    //   // ===== [JWT 调用] generateToken =====
-    //   const token = jwtService.generateToken(studentId);
-    //   try {
-    //     const url = new URL(callbackUrl);
-    //     url.searchParams.set('token', token);
-    //     url.searchParams.set('studentId', studentId);
-    //     return res.redirect(url.toString());
-    //   } catch (error) {
-    //     console.error('回调URL格式错误:', error);
-    //   }
-    // }
-    // ===== [上层回调处理结束] =====
-    
-    // 情况3: 无app和无自定义回调时，直接渲染JWT展示页
+    // 情况3: 无app和无自定义回调时，通过会话临时传递JWT并重定向展示页
     // ===== [JWT 调用] generateToken =====
-    const token = jwtService.generateToken(studentId);
-    const jwtUrl = new URL(config.buildAppUrl('/jwt'));
-    jwtUrl.searchParams.set('token', token);
-    jwtUrl.searchParams.set('studentId', studentId);
-    return res.redirect(jwtUrl.toString());
+    const token = await jwtService.generateToken(studentId);
+    setJwtCookie(res, token);
+    req.session.jwtDisplay = {
+      token,
+      studentId,
+      createdAt: Date.now(),
+    };
+    await saveSession(req);
+    return res.redirect(config.buildAppUrl('/jwt'));
     // ===== [CAS 回调处理结束] =====
     
   } catch (error) {
@@ -736,42 +875,48 @@ router.get('/serviceValidate', casServiceValidateHandler);
 router.get('/cas/login', casService.getLoginMiddleware());
 
 /**
- * 忽略CAS服务端下发的SLO请求（不处理ST）
- * POST /cas/serviceValidate
- */
-router.post('/cas/serviceValidate', safeAsync(handleSloNotification));
-
-router.post('/serviceValidate', safeAsync(handleSloNotification));
-
-router.post('/cas/slo', safeAsync(handleSloNotification));
-
-/**
- * 显示JWT令牌
- * GET /jwt?token={token}&studentId={studentId}
+ * 显示JWT令牌（仅从会话读取）
+ * GET /jwt
  */
 router.get('/jwt', (req, res) => {
-  const { token, studentId } = req.query;
-  
-  if (!token || !studentId) {
+  const display = req.session && req.session.jwtDisplay ? req.session.jwtDisplay : null;
+
+  if (!display || !display.token || !display.studentId) {
     return res.status(400).render('error', {
       title: '参数错误',
-      message: '缺少必要的参数'
+      message: '令牌不存在或已过期，请重新登录'
     });
   }
-  
-  res.render('cas-jwt', {
+
+  delete req.session.jwtDisplay;
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' https://cdn.bootcdn.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'",
+  );
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
+  return res.render('cas-jwt', {
     title: 'JWT令牌',
-    token,
-    studentId,
+    token: display.token,
+    studentId: display.studentId,
   });
 });
 
 /**
  * CAS登出
- * GET /logout
+ * POST /logout
  */
-router.get('/logout', (req, res) => {
-  const serviceUrl = req.query.service || config.appUrl;
+router.post('/logout', (req, res) => {
+  if (!isSameOriginRequest(req)) {
+    return res.status(403).render('error', {
+      title: '请求被拒绝',
+      message: '检测到跨站请求风险，请从本站页面重新发起登出',
+    });
+  }
+
+  const serviceUrl = resolveSafeLogoutService(req);
 
   // 清除本地认证信息
   casService.clearSession(req);
@@ -796,6 +941,13 @@ router.get('/logout', (req, res) => {
   }
 
   return finishLogout();
+});
+
+router.get('/logout', (req, res) => {
+  return res.status(405).render('error', {
+    title: '请求方式错误',
+    message: '请使用 POST 方式发起登出',
+  });
 });
 
 module.exports = router;

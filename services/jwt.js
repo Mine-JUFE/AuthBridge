@@ -99,7 +99,7 @@ class JWTService {
     return {};
   }
 
-  buildPayload(studentId, appid, appConfig, appSecret) {
+  async buildPayload(studentId, appid, appConfig, appSecret) {
     const baseClaims = this.buildBaseClaims();
     const encryptType = appConfig.encrypt_type || "aes";
     if (encryptType === "ecc") {
@@ -110,7 +110,7 @@ class JWTService {
         );
       }
 
-      const encrypted = encryptStudentIdWithEcc(studentId, eccPublicKey);
+      const encrypted = await encryptStudentIdWithEcc(studentId, eccPublicKey);
       return {
         sub: encrypted.encryptedText,
         iv: encrypted.iv,
@@ -141,11 +141,12 @@ class JWTService {
     const expiresIn = appConfig.jwt_expires_in || config.jwt.defaultExpiresIn || config.jwt.expiresIn;
     const jwtSecret = this.resolveJwtSecretForApp(appid);
     return jwt.sign(payload, jwtSecret, {
+      algorithm: "HS256",
       expiresIn,
     });
   }
 
-  generateForApp(studentId, appid) {
+  async generateForApp(studentId, appid) {
     if (!studentId || typeof studentId !== "string") {
       throw new Error("无效的学号");
     }
@@ -156,14 +157,14 @@ class JWTService {
     }
 
     const appSecret = this.getAppSecret(appid);
-    const payload = this.buildPayload(studentId, appid, appConfig, appSecret);
+    const payload = await this.buildPayload(studentId, appid, appConfig, appSecret);
     const token = this.signPayload(payload, appid);
 
     console.log(`🔐 为 ${this.maskValue(studentId)} 生成应用 JWT，appid: ${appid}`);
     return token;
   }
 
-  generateToken(studentId) {
+  async generateToken(studentId) {
     const defaultAppId = this.resolveDefaultAppId();
     if (!defaultAppId) {
       throw new Error("未配置任何应用，无法生成JWT");
@@ -181,7 +182,11 @@ class JWTService {
       for (const appId of appIds) {
         try {
           const jwtSecret = this.resolveJwtSecretForApp(appId);
-          return jwt.verify(token, jwtSecret, options);
+          const verifyOptions = {
+            ...options,
+            algorithms: ["HS256"],
+          };
+          return jwt.verify(token, jwtSecret, verifyOptions);
         } catch (innerError) {
           continue;
         }

@@ -5,6 +5,76 @@ const { parseStringPromise, processors } = require('xml2js');
 const config = require('../config');
 
 const { stripPrefix } = processors;
+const DISALLOWED_XML_MARKERS = [/<!DOCTYPE/i, /<!ENTITY/i];
+
+function normalizeHttpUrl(input) {
+  if (!input || typeof input !== 'string') {
+    return null;
+  }
+
+  try {
+    const urlObj = new URL(input);
+    if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+      return null;
+    }
+    urlObj.hash = '';
+    return urlObj.toString();
+  } catch (_error) {
+    return null;
+  }
+}
+
+function isWhitelistedUrl(targetUrl, whitelist) {
+  const normalizedTarget = normalizeHttpUrl(targetUrl);
+  if (!normalizedTarget) {
+    return false;
+  }
+
+  const target = new URL(normalizedTarget);
+  return (Array.isArray(whitelist) ? whitelist : []).some((rule) => {
+    if (typeof rule !== 'string' || !rule.trim()) {
+      return false;
+    }
+
+    const normalizedRule = normalizeHttpUrl(rule.trim());
+    if (!normalizedRule) {
+      return false;
+    }
+
+    const allowed = new URL(normalizedRule);
+    if (allowed.origin !== target.origin || allowed.pathname !== target.pathname) {
+      return false;
+    }
+
+    if (!allowed.search) {
+      return true;
+    }
+
+    return allowed.search === target.search;
+  });
+}
+
+function normalizeIpAddress(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  const first = raw.split(',')[0].trim();
+  const unwrapped = first.startsWith('[') && first.endsWith(']')
+    ? first.slice(1, -1)
+    : first;
+
+  if (/^\d+\.\d+\.\d+\.\d+:\d+$/.test(unwrapped)) {
+    return unwrapped.split(':')[0];
+  }
+
+  return unwrapped.replace(/^::ffff:/i, '');
+}
+
+function containsUnsafeXmlConstructs(xmlText) {
+  return DISALLOWED_XML_MARKERS.some((pattern) => pattern.test(xmlText));
+}
 
 // 初始化CAS客户端
 const casClient = new CAS({
@@ -27,11 +97,66 @@ class CASConnectService {
   constructor() {
     this.client = casClient;
     this.ticketSessionMap = new Map();
+    this.maxCasXmlBytes = Number(config.cas && config.cas.maxXmlBytes) > 0
+      ? Number(config.cas.maxXmlBytes)
+      : 64 * 1024;
     console.log('CAS客户端初始化完成:', {
       baseUrl: config.cas.baseUrl,
       serviceUrl: config.cas.serviceUrl,
       version: config.cas.version
     });
+  }
+
+  parseXmlSafely(xmlText, scene = 'CAS响应') {
+    if (!xmlText || typeof xmlText !== 'string') {
+      throw new Error(`${scene}为空`);
+    }
+
+    const text = xmlText.trim();
+    if (!text) {
+      throw new Error(`${scene}为空`);
+    }
+
+    if (Buffer.byteLength(text, 'utf8') > this.maxCasXmlBytes) {
+      throw new Error(`${scene}超过大小限制`);
+    }
+
+    if (containsUnsafeXmlConstructs(text)) {
+      throw new Error(`${scene}包含不安全DTD/ENTITY声明`);
+    }
+
+    return parseStringPromise(text, {
+      explicitArray: false,
+      tagNameProcessors: [stripPrefix],
+      strict: true,
+      dtd: false,
+    });
+  }
+
+  getSloTrustedIps() {
+    const configured = config.cas && Array.isArray(config.cas.serverIpWhitelist)
+      ? config.cas.serverIpWhitelist
+      : config.cas && config.cas.slo && Array.isArray(config.cas.slo.trustedIps)
+        ? config.cas.slo.trustedIps
+      : [];
+
+    return configured
+      .map((item) => normalizeIpAddress(item))
+      .filter(Boolean);
+  }
+
+  isTrustedSloSource(sourceIp) {
+    const trustedIps = this.getSloTrustedIps();
+    if (!trustedIps.length) {
+      return true;
+    }
+
+    const normalizedSourceIp = normalizeIpAddress(sourceIp);
+    if (!normalizedSourceIp) {
+      return false;
+    }
+
+    return trustedIps.includes(normalizedSourceIp);
   }
 
   registerTicketSession(ticket, sessionId) {
@@ -65,10 +190,7 @@ class CASConnectService {
     }
 
     try {
-      const parsed = await parseStringPromise(logoutRequestXml, {
-        explicitArray: false,
-        tagNameProcessors: [stripPrefix]
-      });
+      const parsed = await this.parseXmlSafely(logoutRequestXml, 'CAS logoutRequest');
 
       const root = parsed && (parsed.LogoutRequest || parsed.logoutRequest || parsed);
       if (!root) {
@@ -95,7 +217,16 @@ class CASConnectService {
     }
   }
 
-  async handleBackChannelLogout(logoutRequestXml, sessionStore) {
+  async handleBackChannelLogout(logoutRequestXml, sessionStore, options = {}) {
+    const sourceIp = options && options.sourceIp;
+    if (!this.isTrustedSloSource(sourceIp)) {
+      return {
+        ok: false,
+        reason: 'untrusted-source',
+        sourceIp: normalizeIpAddress(sourceIp) || 'unknown'
+      };
+    }
+
     const sessionIndex = await this.extractSessionIndexFromLogoutRequest(logoutRequestXml);
     if (!sessionIndex) {
       return {
@@ -253,10 +384,7 @@ class CASConnectService {
         ? response.data
         : String(response.data || '');
 
-      const parsed = await parseStringPromise(xmlText, {
-        explicitArray: false,
-        tagNameProcessors: [stripPrefix]
-      });
+      const parsed = await this.parseXmlSafely(xmlText, 'CAS校验响应');
 
       const serviceResponse = parsed && (parsed.serviceResponse || parsed);
       const success = serviceResponse && serviceResponse.authenticationSuccess;
@@ -463,7 +591,7 @@ class CASConnectService {
   /**
    * 获取目标应用的回调地址
    */
-  async getCallbackUrl(targetApp, token, customCallbackUrl = null) {
+  async getCallbackUrl(targetApp, customCallbackUrl = null) {
     if (!targetApp) {
       return null;
     }
@@ -478,27 +606,15 @@ class CASConnectService {
     try {
       const callbackUrl = new URL(base);
       const callbackWhitelist = (config.callbackWhitelistMap && config.callbackWhitelistMap[targetApp]) || [];
-      const isAllowed = callbackWhitelist.some((item) => {
-        if (typeof item !== 'string' || !item.trim()) {
-          return false;
-        }
-
-        try {
-          const allowed = new URL(item);
-          return allowed.origin === callbackUrl.origin && allowed.pathname === callbackUrl.pathname;
-        } catch (_error) {
-          return false;
-        }
-      });
+      const normalizedCallback = normalizeHttpUrl(callbackUrl.toString());
+      const isAllowed = isWhitelistedUrl(normalizedCallback, callbackWhitelist);
 
       if (!isAllowed) {
         console.warn(`回调地址不在白名单中: ${targetApp} -> ${callbackUrl.toString()}`);
         return null;
       }
 
-      callbackUrl.searchParams.set('token', token);
-      callbackUrl.searchParams.set('timestamp', Date.now());
-      return callbackUrl.toString();
+      return normalizedCallback;
     } catch (error) {
       console.error('构建回调URL失败:', error.message);
       return null;

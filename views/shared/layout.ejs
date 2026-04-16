@@ -5,7 +5,7 @@
 
   <body data-base-path="<%= basePath %>">
     <div id="app" class="page-wrap">
-      <%- include('./nav'); %>
+    <%- include('./nav'); %>
 
       <main class="flex flex-col items-center justify-center gap-6 pt-24">
         <%- include('./logo.svg'); %>
@@ -17,7 +17,7 @@
           <p
             class="text-light-onSurfaceVariant dark:text-dark-onSurfaceVariant"
           >
-            <%- t(secondtitle, typeof secondtitleParams === 'object' ? secondtitleParams : {}) %>
+            <%= t(secondtitle, typeof secondtitleParams === 'object' ? secondtitleParams : {}) %>
           </p>
         </section>
         <%- body %>

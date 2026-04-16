@@ -1,6 +1,19 @@
 const crypto = require("crypto");
 
-function encryptStudentIdWithEcc(studentId, eccPublicKeyPem) {
+function generateEcKeyPair(namedCurve) {
+  return new Promise((resolve, reject) => {
+    crypto.generateKeyPair("ec", { namedCurve }, (error, publicKey, privateKey) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve({ publicKey, privateKey });
+    });
+  });
+}
+
+async function encryptStudentIdWithEcc(studentId, eccPublicKeyPem) {
   const receiverPublicKey = crypto.createPublicKey(eccPublicKeyPem);
   if (receiverPublicKey.asymmetricKeyType !== "ec") {
     throw new Error("ECC 公钥类型必须是 EC");
@@ -11,7 +24,7 @@ function encryptStudentIdWithEcc(studentId, eccPublicKeyPem) {
       && receiverPublicKey.asymmetricKeyDetails.namedCurve)
     || "prime256v1";
 
-  const ephemeral = crypto.generateKeyPairSync("ec", { namedCurve: curve });
+  const ephemeral = await generateEcKeyPair(curve);
   const sharedSecret = crypto.diffieHellman({
     privateKey: ephemeral.privateKey,
     publicKey: receiverPublicKey,

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="referrer" content="no-referrer" />
+  <title>正在跳转到应用...</title>
+</head>
+<body onload="document.forms[0].submit()">
+  <p>登录成功，正在跳转...</p>
+  <form method="POST" action="<%= callbackUrl %>">
+    <input type="hidden" name="token" value="<%= token %>" />
+    <input type="hidden" name="studentId" value="<%= studentId %>" />
+    <input type="hidden" name="timestamp" value="<%= timestamp %>" />
+    <noscript>
+      <input type="submit" value="点击继续" />
+    </noscript>
+  </form>
+</body>
+</html>
