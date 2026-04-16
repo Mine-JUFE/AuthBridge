@@ -28,7 +28,6 @@ Windows：
 ```shell
 copy .env.example .env
 copy applist.template.json applist.json
-copy secret.template.json secret.json
 ```
 
 Linux/macOS：
@@ -36,12 +35,19 @@ Linux/macOS：
 ```shell
 cp .env.example .env
 cp applist.template.json applist.json
+```
+
+可选（仅本地开发回退）：
+
+```shell
+copy secret.template.json secret.json
+# 或
 cp secret.template.json secret.json
 ```
 
 生产必须完成：
-- 替换 `secret.json` 中全部示例密钥
-- 每个 app 都配置独立的 `appSecrets.<appid>.jwt_key`
+- 使用环境变量提供密钥（`SESSION_SECRET`、`APP1_JWT_KEY`、`APP2_JWT_KEY` 等）
+- 每个 app 都配置独立 JWT 密钥（`<APPID>_JWT_KEY`）
 - callback 地址写入 `applist.json` 的 `callback_whitelist`
 - 核对 `APP_URL` 与真实对外访问地址（含子路径）一致
 
@@ -89,6 +95,11 @@ cp secret.template.json secret.json
 
 ### 3.3 secret.json
 
+说明：默认策略为“环境变量优先”。
+- `NODE_ENV=production` 时默认不回退 `secret.json`
+- 非生产环境默认允许回退 `secret.json`
+- 可通过 `SECRET_FILE_FALLBACK=true/false` 强制控制
+
 示例：
 
 ```json
@@ -108,6 +119,14 @@ ECC 注意：
 - 可以使用真实换行 PEM，必须用 `\n` 转义换行
 - 如果把 PEM 内容写坏，会导致 `ERR_OSSL_UNSUPPORTED` 等解析错误
 - `ecc_public_key` 用于上行加密；本服务端不要求必须配置 `ecc_private_key`
+
+推荐环境变量（以 app1/app2 为例）：
+- `SESSION_SECRET`
+- `APP1_JWT_KEY`
+- `APP1_AES_KEY`
+- `APP2_JWT_KEY`
+- `APP2_ECC_PUBLIC_KEY_B64`
+- `APP2_ECC_PRIVATE_KEY_B64`
 
 ## 4. 启动方式
 
@@ -214,7 +233,7 @@ npm run generate:rsa
 
 ## 10. 上线检查清单
 
-- [ ] `.env`、`applist.json`、`secret.json` 已按生产填写
+- [ ] `.env`、`applist.json` 已按生产填写，密钥已通过环境变量注入
 - [ ] `APP_URL` 与反代路径一致
 - [ ] `callback_whitelist` 已覆盖所有合法回调
 - [ ] `SESSION_USE_REDIS=true` 且 Redis 正常

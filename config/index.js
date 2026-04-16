@@ -35,7 +35,7 @@ const appListConfig = readJsonSafe("applist.json", {
   ],
 }, "APPLIST_PATH");
 
-const secretConfig = readJsonSafe("secret.json", {
+const secretFileConfig = readJsonSafe("secret.json", {
   sessionSecret:
     process.env.SESSION_SECRET || "your-session-secret-key-change-in-production",
   appSecrets: {},
@@ -94,8 +94,6 @@ function assertSecureSecretConfig(configValue) {
   }
 }
 
-assertSecureSecretConfig(secretConfig);
-
 function normalizeEncryptType(rawType) {
   const normalized = String(rawType || "aes").trim().toLowerCase();
   if (normalized === "ecc" || normalized === "hash") {
@@ -114,6 +112,69 @@ function normalizeJwtExpiresIn(rawValue, fallback = "1h") {
   }
 
   return fallback;
+}
+
+function toEnvKeyPrefix(appid) {
+  return String(appid || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9]/g, "_")
+    .toUpperCase();
+}
+
+function decodeMaybeBase64Pem(input) {
+  const raw = String(input || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  if (raw.includes("-----BEGIN ")) {
+    return raw;
+  }
+
+  try {
+    const decoded = Buffer.from(raw, "base64").toString("utf8").trim();
+    if (decoded.includes("-----BEGIN ")) {
+      return decoded;
+    }
+  } catch (_error) {
+    // ignore decode failure and return original value
+  }
+
+  return raw;
+}
+
+function readEnvAppSecret(appid) {
+  const prefix = toEnvKeyPrefix(appid);
+  if (!prefix) {
+    return null;
+  }
+
+  const jwtKey = process.env[`${prefix}_JWT_KEY`];
+  const aesKey = process.env[`${prefix}_AES_KEY`];
+  const eccPublicKeyRaw = process.env[`${prefix}_ECC_PUBLIC_KEY_B64`] || process.env[`${prefix}_ECC_PUBLIC_KEY`];
+  const eccPrivateKeyRaw = process.env[`${prefix}_ECC_PRIVATE_KEY_B64`] || process.env[`${prefix}_ECC_PRIVATE_KEY`];
+
+  const result = {};
+
+  if (typeof jwtKey === "string" && jwtKey.trim()) {
+    result.jwt_key = jwtKey.trim();
+  }
+
+  if (typeof aesKey === "string" && aesKey.trim()) {
+    result.aes_key = aesKey.trim();
+  }
+
+  const eccPublicKey = decodeMaybeBase64Pem(eccPublicKeyRaw);
+  if (eccPublicKey) {
+    result.ecc_public_key = eccPublicKey;
+  }
+
+  const eccPrivateKey = decodeMaybeBase64Pem(eccPrivateKeyRaw);
+  if (eccPrivateKey) {
+    result.ecc_private_key = eccPrivateKey;
+  }
+
+  return Object.keys(result).length ? result : null;
 }
 
 function normalizeHttpUrl(raw) {
@@ -219,6 +280,44 @@ const appListMap = normalizedAppList.reduce((acc, app) => {
   acc[app.appid] = app;
   return acc;
 }, {});
+
+function buildSecretConfig() {
+  const envSessionSecret = typeof process.env.SESSION_SECRET === "string"
+    ? process.env.SESSION_SECRET.trim()
+    : "";
+
+  const allowFileFallback = process.env.SECRET_FILE_FALLBACK === "true"
+    || (resolvedEnv !== "production" && process.env.SECRET_FILE_FALLBACK !== "false");
+
+  const fileSecrets =
+    (secretFileConfig && secretFileConfig.appSecrets && typeof secretFileConfig.appSecrets === "object")
+      ? secretFileConfig.appSecrets
+      : {};
+
+  const appSecrets = {};
+  normalizedAppList.forEach((app) => {
+    const appid = app && app.appid;
+    if (!appid) {
+      return;
+    }
+
+    const envAppSecret = readEnvAppSecret(appid);
+    const fileAppSecret = allowFileFallback ? fileSecrets[appid] : null;
+    appSecrets[appid] = {
+      ...(fileAppSecret && typeof fileAppSecret === "object" ? fileAppSecret : {}),
+      ...(envAppSecret || {}),
+    };
+  });
+
+  return {
+    sessionSecret: envSessionSecret || (allowFileFallback ? secretFileConfig.sessionSecret : ""),
+    appSecrets,
+  };
+}
+
+const secretConfig = buildSecretConfig();
+
+assertSecureSecretConfig(secretConfig);
 
 const appSecretMap =
   (secretConfig && secretConfig.appSecrets && typeof secretConfig.appSecrets === "object")
