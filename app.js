@@ -61,6 +61,29 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser()); // 必须在 i18n 之前！
 
+if (process.env.DEBUG_PROXY_HEADERS === "true") {
+  app.use((req, res, next) => {
+    const forwardedProto = req.headers["x-forwarded-proto"];
+    const forwardedHost = req.headers["x-forwarded-host"];
+    const forwardedFor = req.headers["x-forwarded-for"];
+    const cookieNames = Object.keys(req.cookies || {});
+
+    console.log("[DEBUG_PROXY]", {
+      method: req.method,
+      url: req.originalUrl,
+      secure: req.secure,
+      protocol: req.protocol,
+      host: req.get("host"),
+      forwardedProto,
+      forwardedHost,
+      forwardedFor,
+      cookieNames,
+    });
+
+    next();
+  });
+}
+
 // 全局变量
 app.locals.basePath = config.appBasePath;
 app.locals.withBasePath = config.withBasePath;
