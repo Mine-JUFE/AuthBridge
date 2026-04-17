@@ -1,4 +1,4 @@
-<div class="color-light-primary h-12rem w-16rem dark:color-dark-primary">
+
   <svg
     data-hk="0000000100000001100000240"
     id="silhoutte"
@@ -23,7 +23,7 @@
 
         visibility: var(--jufe-silhoutte-visibility);
         fill: none;
-        stroke: currentColor;
+        stroke: #904a4b;
         stroke-linecap: round;
         stroke-linejoin: round;
         stroke-width: 3;
@@ -2528,4 +2528,4 @@
       ></path>
     </g>
   </svg>
-</div>
+

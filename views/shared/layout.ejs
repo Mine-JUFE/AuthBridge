@@ -8,7 +8,12 @@
     <%- include('./nav'); %>
 
       <main class="flex flex-col items-center justify-center gap-6 pt-24">
-        <%- include('./logo.svg'); %>
+        <div class="color-light-primary h-12rem w-16rem dark:color-dark-primary">
+          <img   
+            type="image/svg+xml" 
+            src="<%= withBasePath('/icons/logo.svg') %>"
+            >
+        </div>
 
         <section class="title-block">
           <h1 class="text-light-onSurface dark:text-dark-onSurface font-serif">
