@@ -269,14 +269,6 @@ function collectCookieDomains(req) {
   domains.add(undefined);
   domains.add(host);
 
-  // 为常见跨子域部署场景增加父域清理
-  if (host.includes('.') && host !== 'localhost' && !/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
-    const segments = host.split('.');
-    if (segments.length >= 2) {
-      domains.add(`.${segments.slice(-2).join('.')}`);
-    }
-  }
-
   return Array.from(domains);
 }
 
@@ -297,15 +289,12 @@ function clearTransientAuthState(req) {
 function clearClientAuthCookies(req, res) {
   const cookieName = config.session.name;
   const domains = collectCookieDomains(req);
+  const appBasePath = config.appBasePath && config.appBasePath !== '/' ? config.appBasePath : '/';
 
-  // 尽量覆盖不同部署下可能出现的 cookie 属性组合
+  // 仅保留项目实际使用路径，避免产生过多 Set-Cookie 头
   const baseOptionsList = [
     { path: '/' },
-    { path: '/cas' },
-    { path: '/', sameSite: 'lax' },
-    { path: '/', sameSite: 'none', secure: true },
-    { path: '/', secure: true },
-    { path: '/', secure: false },
+    { path: appBasePath },
   ];
 
   const clearOptionsList = [];
@@ -319,17 +308,12 @@ function clearClientAuthCookies(req, res) {
     });
   });
 
-  const candidateNames = [cookieName, 'connect.sid', JWT_COOKIE_NAME];
+  const candidateNames = Array.from(new Set([cookieName, JWT_COOKIE_NAME]));
 
-  // 同时使用 clearCookie 与显式过期写回，尽可能覆盖浏览器差异
+  // 使用 clearCookie 即可，避免重复写回导致响应头膨胀
   candidateNames.forEach((name) => {
     clearOptionsList.forEach((options) => {
       res.clearCookie(name, options);
-      res.cookie(name, '', {
-        ...options,
-        expires: new Date(1),
-        maxAge: 0,
-      });
     });
   });
 
