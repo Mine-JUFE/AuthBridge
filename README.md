@@ -156,7 +156,7 @@ GET /login?appid=app2&mode=callback&callback=https%3A%2F%2Fapp2.example.com%2Fap
 ```
 
 参数说明：
-- `appid` 或 `app`: 目标应用 ID
+- `appid` 或 `app`: 目标应用 ID（必填，除非配置了 `DEFAULT_APP_ID` 或仅有一个应用）
 - `mode`: `callback` 或 `page`
 - `return`: `mode` 的别名
 - `callback`: 临时覆盖回调地址（必须在白名单中）
@@ -165,13 +165,19 @@ GET /login?appid=app2&mode=callback&callback=https%3A%2F%2Fapp2.example.com%2Fap
 返回模式：
 - `mode=callback`: 生成目标应用 JWT 后回调
 - `mode=page`: 跳转 `/jwt` 展示 token
-- 未传 `mode`: 有 `appid` 默认 callback，无 `appid` 默认 page
+- 未传 `mode`: 按应用配置自动选择（`return_mode` 优先；未配置时有回调白名单则 `callback`，否则 `page`）
+
+推荐约定：
+- 无法接收 HTTP 回调的应用（如机器人后端）设置 `return_mode=page`
+- 需要服务端接收 token 的应用设置 `return_mode=callback` 并配置 `callback_whitelist`
 
 当前实现要点：
-- 登录前会把 `appid/mode/callback` 写入会话并显式 `session.save`
-- CAS `service` URL 会携带回调上下文，减少跨域跳转后的上下文丢失
+- 登录前会把 `appid/mode/callback/state` 写入会话并显式 `session.save`
+- CAS `service` URL 会携带回调上下文与 `state`
+- CAS 回调必须命中完整会话上下文（`authState/targetApp/returnMode/casFixedServiceUrl`）
+- CAS 回调 `state` 采用严格匹配（缺失或不一致都会拒绝）
 - CAS 验票时如果首次超时，会自动重试一次
-- 同 ticket 重放会尝试复用最近一次 callback 上下文
+- 同 ticket 重放会被拒绝，要求重新发起登录
 
 ## 6. 白名单规则
 

@@ -66,7 +66,7 @@ function getCasCallbackServiceUrl() {
   return config.buildAppUrl(config.casClient.paths.validate);
 }
 
-function getCasCallbackServiceUrlWithContext({ appid, returnMode, callback }) {
+function getCasCallbackServiceUrlWithContext({ appid, returnMode, callback, state }) {
   const serviceUrl = new URL(getCasCallbackServiceUrl());
 
   if (appid) {
@@ -81,35 +81,49 @@ function getCasCallbackServiceUrlWithContext({ appid, returnMode, callback }) {
     serviceUrl.searchParams.set('callback', String(callback));
   }
 
+  if (state) {
+    serviceUrl.searchParams.set('state', String(state));
+  }
+
   return serviceUrl.toString();
-}
-
-function deriveServiceUrlFromCallbackRequest(req) {
-  if (!req) {
-    return null;
-  }
-
-  try {
-    const serviceUrl = new URL(config.buildAppUrl(req.path || config.casClient.paths.validate));
-    const originalUrl = String(req.originalUrl || '');
-    const queryPart = originalUrl.includes('?') ? originalUrl.slice(originalUrl.indexOf('?') + 1) : '';
-    const params = new URLSearchParams(queryPart);
-
-    params.delete('ticket');
-
-    params.forEach((value, key) => {
-      serviceUrl.searchParams.append(key, value);
-    });
-
-    return serviceUrl.toString();
-  } catch (_error) {
-    return null;
-  }
 }
 
 function getIncomingTarget(req) {
   const redirectKey = (config.cas && config.cas.redirectKey) || 'service';
   return req.query[redirectKey] || req.query.target || null;
+}
+
+function resolveLoginAppId(req) {
+  const queryAppidRaw = req && req.query ? (req.query.appid || req.query.app) : null;
+  const queryAppid = typeof queryAppidRaw === 'string' ? queryAppidRaw.trim() : '';
+  if (queryAppid) {
+    return queryAppid;
+  }
+
+  if (config.jwt && config.jwt.defaultAppId && config.applistMap && config.applistMap[config.jwt.defaultAppId]) {
+    return config.jwt.defaultAppId;
+  }
+
+  const appIds = Object.keys(config.applistMap || {});
+  if (appIds.length === 1) {
+    return appIds[0];
+  }
+
+  return null;
+}
+
+function getDefaultReturnModeForApp(appid) {
+  const appConfig = appid && config.applistMap ? config.applistMap[appid] : null;
+  const configuredMode = appConfig
+    ? (appConfig.return_mode || appConfig.returnMode || appConfig.mode)
+    : null;
+  const normalizedMode = normalizeReturnMode(configuredMode, null);
+  if (normalizedMode) {
+    return normalizedMode;
+  }
+
+  const hasWhitelistedCallback = getAppCallbackWhitelist(appid).length > 0;
+  return hasWhitelistedCallback ? 'callback' : 'page';
 }
 
 function isValidRedirectUrl(input) {
@@ -205,18 +219,17 @@ function isAllowedTargetUrl(appid, targetUrl) {
   return isWhitelistedUrl(targetUrl, allWhitelists);
 }
 
-function resolvePostLoginRedirect(req) {
-  const targetFromSession = req.session.redirectTarget;
-  if (targetFromSession && isValidRedirectUrl(targetFromSession)) {
-    return targetFromSession;
+function resolvePostLoginRedirect(req, appid) {
+  const targetFromSession = req && req.session ? req.session.redirectTarget : null;
+  if (!targetFromSession) {
+    return null;
   }
 
-  const targetFromQuery = getIncomingTarget(req);
-  if (targetFromQuery && isValidRedirectUrl(targetFromQuery)) {
-    return targetFromQuery;
+  if (!isAllowedTargetUrl(appid, targetFromSession)) {
+    return null;
   }
 
-  return null;
+  return targetFromSession;
 }
 
 function getAllowedLogoutServiceWhitelist() {
@@ -283,6 +296,7 @@ function clearTransientAuthState(req) {
   delete req.session.redirectTarget;
   delete req.session.casFixedServiceUrl;
   delete req.session.returnMode;
+  delete req.session.lastAuthFlow;
   delete req.session.jwtDisplay;
 }
 
@@ -536,41 +550,60 @@ router.get('/login', safeAsync(async (req, res) => {
     // 每次发起登录都刷新会话ID，降低会话固定攻击风险
     await regenerateSession(req);
 
-    const appid = req.query.appid || req.query.app || null;
-    const { callback } = req.query;
-    const returnMode = normalizeReturnMode(req.query.mode || req.query.return, null);
+    const appid = resolveLoginAppId(req);
+    const callback = typeof req.query.callback === 'string' ? req.query.callback.trim() : '';
+    const rawReturnMode = req.query.mode || req.query.return;
+    const parsedReturnMode = normalizeReturnMode(rawReturnMode, null);
+    const returnMode = parsedReturnMode || getDefaultReturnModeForApp(appid);
     const incomingTarget = getIncomingTarget(req);
 
     // 新一轮登录前，先清理上次可能残留的临时状态
     clearTransientAuthState(req);
     
+    if (!appid) {
+      return res.status(400).render('error', {
+        title: '参数错误',
+        message: '缺少 appid，请提供 appid 参数，或在配置中设置 DEFAULT_APP_ID'
+      });
+    }
+
     // 验证目标应用是否在 applist 中
-    if (appid && !config.applistMap[appid]) {
+    if (!config.applistMap[appid]) {
       return res.status(400).render('error', {
         title: '应用未授权',
         message: '请求的 appid 不在 applist 中'
       });
     }
 
-    if (returnMode === 'callback' && !appid) {
+    if (rawReturnMode && !parsedReturnMode) {
       return res.status(400).render('error', {
         title: '参数错误',
-        message: 'mode=callback 时必须提供 appid'
+        message: 'mode 参数仅支持 callback 或 page'
+      });
+    }
+
+    if (returnMode === 'page' && callback) {
+      return res.status(400).render('error', {
+        title: '参数错误',
+        message: 'mode=page 不允许传 callback 参数'
       });
     }
 
     if (callback) {
-      if (!appid) {
-        return res.status(400).render('error', {
-          title: '参数错误',
-          message: 'callback 模式必须提供 appid'
-        });
-      }
-
       if (!isAllowedCallbackForApp(appid, callback)) {
         return res.status(400).render('error', {
           title: '回调地址未授权',
           message: 'callback 不在 applist 回调白名单中'
+        });
+      }
+    }
+
+    if (returnMode === 'callback') {
+      const resolvedCallback = await casService.getCallbackUrl(appid, callback || null);
+      if (!resolvedCallback) {
+        return res.status(400).render('error', {
+          title: '回调配置缺失',
+          message: `应用 ${appid} 未配置有效回调地址；如需页面展示，请使用 mode=page 或在 applist 中配置 return_mode=page`
         });
       }
     }
@@ -592,13 +625,14 @@ router.get('/login', safeAsync(async (req, res) => {
     req.session.redirectTarget = incomingTarget || null;
     req.session.returnMode = returnMode;
     
-    console.log(`🔐 登录请求 - State: ${maskValue(state)}, appid: ${appid || '手动模式'}, mode: ${returnMode || 'auto'}`);
+    console.log(`🔐 登录请求 - State: ${maskValue(state)}, appid: ${appid}, mode: ${returnMode}`);
 
     // service 必须和 connect-cas2 校验阶段的 service 完全一致，否则 CAS 会返回 403
     const serviceUrl = getCasCallbackServiceUrlWithContext({
       appid,
       returnMode,
       callback,
+      state,
     });
     req.session.casFixedServiceUrl = serviceUrl;
     
@@ -647,45 +681,40 @@ const casServiceValidateHandler = async (req, res) => {
       );
     }
 
-    const isDuplicateTicketReplay = Boolean(req.session.cas && req.session.cas.st === ticket);
-    let casUser = req.session.cas ? { ...req.session.cas } : null;
+    const expectedState = req.session && req.session.authState
+      ? String(req.session.authState)
+      : '';
+    const targetApp = req.session && req.session.targetApp
+      ? String(req.session.targetApp)
+      : null;
+    const callbackUrl = req.session ? req.session.callbackUrl || null : null;
+    const requestedReturnMode = normalizeReturnMode(req.session && req.session.returnMode, null);
+    const fixedServiceUrl = req.session && req.session.casFixedServiceUrl
+      ? String(req.session.casFixedServiceUrl)
+      : null;
+    const redirectTarget = resolvePostLoginRedirect(req, targetApp);
 
-    // CAS 的 ST 是一次性的；若用户刷新带 ticket 的回调页，直接复用已登录会话
-    if (isDuplicateTicketReplay) {
-      console.log(`检测到重复ticket回调，跳过二次验签: ${maskValue(ticket, 4, 4)}`);
-    } else {
-      const serviceUrl = req.session.casFixedServiceUrl || deriveServiceUrlFromCallbackRequest(req) || getCasCallbackServiceUrl();
-      const validation = await casService.validateTicket(ticket, serviceUrl);
-      if (!validation.ok) {
-        logError('CAS票据校验失败', new Error('CAS ticket validation failed'), {
-          validation: sanitizeValidationLog(validation),
-          path: req.originalUrl,
-        });
-        const message = validation.status === 403
-          ? (
-            isLikelyGatewayIntercept403(validation)
-              ? 'CAS校验请求被网关/WAF拦截（403），请检查CAS域名放行、反向代理与service白名单配置。'
-              : '该票据已失效或已被使用，请重新发起登录。'
-          )
-          : validation.message;
-        return renderAuthErrorAndClearSession(
-          req,
-          res,
-          validation.status === 403 ? 401 : validation.status,
-          '认证失败',
-          message
-        );
-      }
-
-      casUser = {
-        ...validation.userInfo,
-        st: ticket
-      };
+    if (!expectedState || !targetApp || !requestedReturnMode || !fixedServiceUrl) {
+      return renderAuthErrorAndClearSession(
+        req,
+        res,
+        401,
+        '会话过期',
+        '登录上下文不完整，请重新发起登录'
+      );
     }
 
-    // 仅在存在预期state时进行校验；手动模式允许无state回调
-    const expectedState = req.session.authState;
-    if (expectedState && state && state !== expectedState) {
+    if (!config.applistMap[targetApp]) {
+      return renderAuthErrorAndClearSession(
+        req,
+        res,
+        400,
+        '应用未授权',
+        '请求的 appid 不在 applist 中'
+      );
+    }
+
+    if (!state || state !== expectedState) {
       logError('State验证失败', new Error('State mismatch'), {
         queryState: maskValue(state),
         sessionState: maskValue(expectedState)
@@ -699,8 +728,45 @@ const casServiceValidateHandler = async (req, res) => {
       );
     }
 
+    if (req.session.cas && req.session.cas.st === ticket) {
+      return renderAuthErrorAndClearSession(
+        req,
+        res,
+        401,
+        '认证失败',
+        '检测到重复 ticket，请重新发起登录'
+      );
+    }
+
+    const validation = await casService.validateTicket(ticket, fixedServiceUrl);
+    if (!validation.ok) {
+      logError('CAS票据校验失败', new Error('CAS ticket validation failed'), {
+        validation: sanitizeValidationLog(validation),
+        path: req.originalUrl,
+      });
+      const message = validation.status === 403
+        ? (
+          isLikelyGatewayIntercept403(validation)
+            ? 'CAS校验请求被网关/WAF拦截（403），请检查CAS域名放行、反向代理与service白名单配置。'
+            : '该票据已失效或已被使用，请重新发起登录。'
+        )
+        : validation.message;
+      return renderAuthErrorAndClearSession(
+        req,
+        res,
+        validation.status === 403 ? 401 : validation.status,
+        '认证失败',
+        message
+      );
+    }
+
+    const casUser = {
+      ...validation.userInfo,
+      st: ticket
+    };
+
     // 从CAS获取用户信息
-    const studentId = casService.extractStudentId(casUser) || casService.getStudentId(req);
+    const studentId = casService.extractStudentId(casUser);
     if (!studentId) {
       return renderAuthErrorAndClearSession(
         req,
@@ -712,35 +778,8 @@ const casServiceValidateHandler = async (req, res) => {
     }
 
     // 清除state，防止重用
-    if (expectedState) {
-      delete req.session.authState;
-    }
+    delete req.session.authState;
     delete req.session.casFixedServiceUrl;
-
-    // 获取目标应用
-    let targetApp = req.session.targetApp || req.query.appid || req.query.app || null;
-    let callbackUrl = req.session.callbackUrl || req.query.callback || null;
-    let requestedReturnMode = normalizeReturnMode(
-      req.session.returnMode || req.query.mode || req.query.return,
-      null,
-    );
-
-    const replayContext = req.session.lastAuthFlow;
-    if (
-      isDuplicateTicketReplay
-      && replayContext
-      && replayContext.ticket === ticket
-      && !targetApp
-    ) {
-      targetApp = replayContext.targetApp || targetApp;
-      callbackUrl = replayContext.callbackUrl || callbackUrl;
-      requestedReturnMode = normalizeReturnMode(replayContext.returnMode, requestedReturnMode);
-      console.log(`复用上次回调上下文: appid=${targetApp || '无'}`);
-    }
-
-    const resolvedReturnMode = requestedReturnMode || (targetApp ? 'callback' : 'page');
-
-    const redirectTarget = resolvePostLoginRedirect(req);
 
     // 认证成功后再次轮换会话ID，隔离认证前后会话
     await regenerateSession(req);
@@ -755,16 +794,6 @@ const casServiceValidateHandler = async (req, res) => {
       req.session.touch();
     }
 
-    if (resolvedReturnMode === 'callback' && targetApp) {
-      req.session.lastAuthFlow = {
-        ticket,
-        targetApp,
-        callbackUrl: callbackUrl || null,
-        returnMode: 'callback',
-        updatedAt: Date.now(),
-      };
-    }
-
     await onCasLoginSuccess(req, res, {
       studentId,
       targetApp,
@@ -772,12 +801,9 @@ const casServiceValidateHandler = async (req, res) => {
     });
     
     // 清理临时数据
-    const keepCallbackContext = resolvedReturnMode === 'callback' && targetApp;
-    if (!keepCallbackContext) {
-      delete req.session.targetApp;
-      delete req.session.callbackUrl;
-      delete req.session.returnMode;
-    }
+    delete req.session.targetApp;
+    delete req.session.callbackUrl;
+    delete req.session.returnMode;
     delete req.session.redirectTarget;
     
     console.log(`✅ 认证成功 - 学号: ${maskValue(studentId, 2, 2)}, Session: ${maskValue(req.sessionID, 4, 4)}`);
@@ -791,7 +817,7 @@ const casServiceValidateHandler = async (req, res) => {
     }
 
     // 情况1: 选择回调，生成JWT并重定向上级应用
-    if (resolvedReturnMode === 'callback' && targetApp) {
+    if (requestedReturnMode === 'callback') {
       // ===== [JWT 调用] generateForApp =====
       const token = await jwtService.generateForApp(studentId, targetApp);
       const appCallbackUrl = await casService.getCallbackUrl(targetApp, callbackUrl);
@@ -820,18 +846,27 @@ const casServiceValidateHandler = async (req, res) => {
         `应用 ${targetApp} 未配置有效回调地址`
       );
     }
-    
-    // 情况3: 无app和无自定义回调时，通过会话临时传递JWT并重定向展示页
-    // ===== [JWT 调用] generateToken =====
-    const token = await jwtService.generateToken(studentId);
-    setJwtCookie(res, token);
-    req.session.jwtDisplay = {
-      token,
-      studentId,
-      createdAt: Date.now(),
-    };
-    await saveSession(req);
-    return res.redirect(config.buildAppUrl('/jwt'));
+
+    // 情况2: mode=page 时，通过会话临时传递JWT并重定向展示页
+    if (requestedReturnMode === 'page') {
+      const token = await jwtService.generateForApp(studentId, targetApp);
+      setJwtCookie(res, token);
+      req.session.jwtDisplay = {
+        token,
+        studentId,
+        createdAt: Date.now(),
+      };
+      await saveSession(req);
+      return res.redirect(config.buildAppUrl('/jwt'));
+    }
+
+    return renderAuthErrorAndClearSession(
+      req,
+      res,
+      400,
+      '参数错误',
+      '无效的登录返回模式'
+    );
     // ===== [CAS 回调处理结束] =====
     
   } catch (error) {

@@ -4,10 +4,7 @@
       "appid": "app1",
       "app_aud": "app1-client",
       "jwt_expires_in": "1h",
-      "callback": "https://app1.example.com/auth/callback",
-      "callback_whitelist": [
-        "https://app1.example.com/auth/callback"
-      ]
+      "return_mode": "page"
     },
     {
       "appid": "app2",
