@@ -1,5 +1,87 @@
+/* Minimal design tokens and custom utilities migrated from client.css. */
+:root {
+  --colors-light-background: #fff8f7;
+  --colors-light-onBackground: #221919;
+  --colors-light-primary: #904a4b;
+  --colors-light-tertiary: #755a2f;
+  --colors-light-onSurface: #221919;
+  --colors-light-onSurfaceVariant: #524343;
+  --colors-dark-background: #1a1111;
+  --colors-dark-onBackground: #f0dede;
+  --colors-dark-primary: #ffb3b2;
+  --colors-dark-tertiary: #e4c18d;
+  --colors-dark-onSurface: #f0dede;
+  --colors-dark-onSurfaceVariant: #d7c1c1;
+  --un-text-opacity: 100%;
+}
+
 body {
   margin: 0;
+  background: var(--colors-light-background);
+  color: var(--colors-light-onBackground);
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: var(--colors-dark-background);
+    color: var(--colors-dark-onBackground);
+  }
+}
+
+.text-decoration-none {
+  text-decoration: none;
+}
+
+.flex-grow-1 {
+  flex-grow: 1;
+}
+
+.line-height-snug {
+  line-height: 1.375;
+}
+
+.h-12rem {
+  height: 12rem;
+}
+
+.w-16rem {
+  width: 16rem;
+}
+
+.color-light-primary,
+.text-light-primary {
+  color: var(--colors-light-primary);
+}
+
+.color-light-tertiary {
+  color: var(--colors-light-tertiary);
+}
+
+.text-light-onSurface {
+  color: var(--colors-light-onSurface);
+}
+
+.text-light-onSurfaceVariant {
+  color: var(--colors-light-onSurfaceVariant);
+}
+
+@media (prefers-color-scheme: dark) {
+  .dark\:color-dark-primary,
+  .dark\:text-dark-primary {
+    color: var(--colors-dark-primary);
+  }
+
+  .dark\:color-dark-tertiary {
+    color: var(--colors-dark-tertiary);
+  }
+
+  .dark\:text-dark-onSurface {
+    color: var(--colors-dark-onSurface);
+  }
+
+  .dark\:text-dark-onSurfaceVariant {
+    color: var(--colors-dark-onSurfaceVariant);
+  }
 }
 
 .page-wrap {
@@ -22,46 +104,6 @@ body {
 .title-block p {
   margin: 0;
   opacity: 0.75;
-}
-
-.card-grid {
-  width: 100%;
-  max-width: 1200px;
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  padding: 0 16px;
-}
-
-@media (max-width: 1200px) {
-  .card-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 760px) {
-  .card-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.foot-note {
-  text-align: center;
-  margin-top: 12px;
-  opacity: 0.6;
-  font-size: 0.9rem;
-}
-.bounce {
-  animation: bounce 1s ease;
-}
-@keyframes bounce {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-20px);
-  }
 }
 .incontext-link {
   color: color-mix(in oklab, var(--colors-light-primary) var(--un-text-opacity), transparent) !important;
