@@ -179,6 +179,32 @@ GET /login?appid=app2&mode=callback&callback=https%3A%2F%2Fapp2.example.com%2Fap
 - CAS 验票时如果首次超时，会自动重试一次
 - 同 ticket 重放会被拒绝，要求重新发起登录
 
+### 回调后端实现建议与示例
+
+AuthBridge 在 `mode=callback` 场景下会通过浏览器自动 POST 一个表单到目标应用的回调地址，表单字段包含：
+
+- `token`: 服务端为目标应用签发的 JWT（HS256 或按应用配置）
+- `studentId`: 认证得到的用户标识（便于回调方做审计或二次确认）
+- `timestamp`: 生成时间戳
+
+回调方后端收到该 POST 请求后应当：
+
+- 在服务器端验证 JWT 签名与有效期（不要信任前端传来的任何声明）
+- 验证通过后，由回调方后端在自己的域下写入 HttpOnly 的会话 Cookie 或直接建立本地 session（AuthBridge 无法替其它域写 cookie）
+- 对于跨主域场景，推荐后端在验签成功后**不再把 JWT 暴露给前端**，而是直接将登录态映射为本地会话（Set-Cookie 或 服务器端会话存储）
+- 在无法避免前端接触 token 时，优选短期 token、一次性 code 交换或额外的防重放/绑定策略
+
+安全要点：
+
+- 回调请求与回调地址必须走 HTTPS，全链路加密
+- 回调方后端应开启严格日志脱敏，避免记录请求体中的 `token`
+- 回调方需验证 token 的签名、`exp`，并根据业务需要校验载荷（如 `enc`、`sub` 等）
+- 若回调方需要跨域接收（不同主域），推荐采用“一次性 code -> 后端换取 token”的方式，避免浏览器长期持有敏感 JWT
+
+示例模板：仓库中包含一个 `demo-backend` 目录，作为回调后端实现参考（被 `.dockerignore` 忽略）。示例实现演示如何接收 POST、验签并在本域写入 HttpOnly cookie。请根据生产密钥替换示例中的 `DEMO_APP_JWT_KEY`。
+
+示例目录： [demo-backend](demo-backend)
+
 ## 6. 白名单规则
 
 - 仅允许 `http` / `https`
