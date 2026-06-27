@@ -51,7 +51,6 @@
     <p class="callback-hint">如果页面没有自动跳转，请点击下面的按钮继续。</p>
     <form id="callback-form" class="callback-form" method="POST" action="<%= callbackUrl %>">
       <input type="hidden" name="token" value="<%= token %>" />
-      <input type="hidden" name="studentId" value="<%= studentId %>" />
       <input type="hidden" name="timestamp" value="<%= timestamp %>" />
       <button id="callback-submit" class="callback-submit" type="submit">点击继续</button>
     </form>

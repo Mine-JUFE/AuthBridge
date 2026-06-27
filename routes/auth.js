@@ -497,7 +497,7 @@ function isSameOriginRequest(req) {
   return false;
 }
 
-function renderAutoPostTokenPage(res, callbackUrl, token, studentId) {
+function renderAutoPostTokenPage(res, callbackUrl, token) {
   let callbackOrigin = null;
   try {
     callbackOrigin = new URL(callbackUrl).origin;
@@ -517,7 +517,6 @@ function renderAutoPostTokenPage(res, callbackUrl, token, studentId) {
   return res.render('auto-post-token', {
     callbackUrl,
     token,
-    studentId,
     timestamp: Date.now(),
   });
 }
@@ -835,7 +834,7 @@ const casServiceValidateHandler = async (req, res) => {
       if (appCallbackUrl) {
         console.log(`通过POST表单跳转到应用: ${targetApp}`);
         await saveSession(req);
-        return renderAutoPostTokenPage(res, appCallbackUrl, token, studentId);
+        return renderAutoPostTokenPage(res, appCallbackUrl, token);
       }
 
       return renderAuthErrorAndClearSession(

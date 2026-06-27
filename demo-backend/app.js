@@ -13,7 +13,7 @@ const JWT_KEY = process.env.DEMO_APP_JWT_KEY || 'replace-with-demo-jwt-key';
 
 // 回调接收端示例
 app.post('/api/auth/callback', (req, res) => {
-  const { token, studentId, timestamp } = req.body || {};
+  const { token, timestamp } = req.body || {};
   if (!token) {
     return res.status(400).send('missing token');
   }
@@ -32,7 +32,7 @@ app.post('/api/auth/callback', (req, res) => {
     });
 
     // 可选：返回页面或 JSON，指示登录成功
-    return res.send(`login ok for ${studentId || payload.sub || 'unknown'}`);
+    return res.send(`login ok for ${payload.sub || 'unknown'}`);
   } catch (err) {
     console.error('verify failed', err && err.message);
     return res.status(401).send('invalid token');
