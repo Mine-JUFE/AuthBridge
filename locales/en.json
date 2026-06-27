@@ -93,6 +93,13 @@
 			"detailPrefix": "Error detail:"
 		}
 	},
+	"callback": {
+		"title": "Login Callback",
+		"subtitle": "Redirecting securely to the target application",
+		"body1": "Login succeeded. Redirecting to the target application.",
+		"body2": "If the page does not redirect automatically, click the button below to continue.",
+		"continue": "Continue"
+	},
 	"jwt": {
 		"title": "JWT Token",
 		"pageTitle": "JWT Token",

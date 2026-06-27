@@ -93,6 +93,13 @@
       "detailPrefix": "错误详情："
     }
   },
+  "callback": {
+    "title": "登录回调",
+    "subtitle": "正在安全跳转到目标应用",
+    "body1": "登录成功，正在跳转到目标应用。",
+    "body2": "如果页面没有自动跳转，请点击下面的按钮继续。",
+    "continue": "点击继续"
+  },
   "jwt": {
     "pageTitle": "JWT 令牌",
     "title": "JWT 令牌",

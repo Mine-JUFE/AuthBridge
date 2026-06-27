@@ -1,59 +1,22 @@
-<style>
-  .callback-card {
-    max-width: 100%;
-    padding: 16px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    border: 1px solid #e9ecef;
-  }
+<p><%= t('callback.body1') %></p>
+<p><%= t('callback.body2') %></p>
 
-  .callback-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: #333;
-    margin: 0 0 12px 0;
-    padding: 0;
-    text-align: center;
-  }
-
-  .callback-hint {
-    margin-top: 8px;
-    text-align: center;
-    color: #666;
-    font-size: 14px;
-  }
-
-  .callback-form {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .callback-submit {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 120px;
-    padding: 8px 14px;
-    border: 0;
-    border-radius: 6px;
-    background: var(--colors-light-primary);
-    color: #fff;
-    cursor: pointer;
-  }
-</style>
-
-<div class="mx-auto w-11/12 sm:w-4/5 md:w-3/5">
-  <div class="callback-card">
-    <h2 class="callback-title">登录成功，正在跳转到目标应用</h2>
-    <p class="callback-hint">如果页面没有自动跳转，请点击下面的按钮继续。</p>
-    <form id="callback-form" class="callback-form" method="POST" action="<%= callbackUrl %>">
-      <input type="hidden" name="token" value="<%= token %>" />
-      <button id="callback-submit" class="callback-submit" type="submit">点击继续</button>
-    </form>
-  </div>
-</div>
+<form id="callback-form" method="POST" action="<%= callbackUrl %>">
+  <input type="hidden" name="token" value="<%= token %>" />
+  <button
+    id="callback-submit"
+    type="submit"
+    class="inline-block px-6 py-3 text-white rounded-lg hover:opacity-90 transition duration-300"
+    style="
+      background-color: color-mix(
+        in oklab,
+        var(--colors-light-primary) var(--un-text-opacity),
+        transparent
+      );
+    "
+  >
+    <%= t('callback.continue') %>
+  </button>
+</form>
 
 <script src="<%= withBasePath('/scripts/auto-post-token.js') %>"></script>
