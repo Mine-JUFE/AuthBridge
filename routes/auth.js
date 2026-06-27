@@ -461,7 +461,7 @@ function renderJwtCookieIssuedPage(res, studentId) {
   res.setHeader('Expires', '0');
   return res.render('error', {
     title: '登录成功',
-    message: `JWT 已通过 HttpOnly Cookie 安全下发（学号: ${maskValue(studentId, 2, 2)}），不再以明文展示或拼接到URL。`,
+    message: `JWT 已通过 HttpOnly Cookie 安全下发（学号: ${maskValue(studentId, 2, 2)}）`,
   });
 }
 
@@ -517,7 +517,6 @@ function renderAutoPostTokenPage(res, callbackUrl, token) {
   return res.render('auto-post-token', {
     callbackUrl,
     token,
-    timestamp: Date.now(),
   });
 }
 

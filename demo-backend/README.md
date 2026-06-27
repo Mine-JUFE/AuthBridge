@@ -1,6 +1,6 @@
 # Demo Backend
 
-这是一个最小示例，演示回调方如何接收来自 AuthBridge 的 POST 表单（`token`、`timestamp`），在服务器端验证 JWT 并写入本域下的 HttpOnly cookie 以建立本地会话。
+这是一个最小示例，演示回调方如何接收来自 AuthBridge 的 POST 表单（`token`），在服务器端验证 JWT 并写入本域下的 HttpOnly cookie 以建立本地会话。
 
 运行：
 

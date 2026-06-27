@@ -13,7 +13,7 @@ const JWT_KEY = process.env.DEMO_APP_JWT_KEY || 'replace-with-demo-jwt-key';
 
 // 回调接收端示例
 app.post('/api/auth/callback', (req, res) => {
-  const { token, timestamp } = req.body || {};
+  const { token } = req.body || {};
   if (!token) {
     return res.status(400).send('missing token');
   }
