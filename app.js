@@ -157,9 +157,6 @@ app.use((req, res, next) => {
   );
   next();
 });
-// Redis客户端配置超时
-const redisClient = new Redis({ commandTimeout: 2000 });
-const store = new RedisStore({ client: redisClient });
 
 
 // Session配置
@@ -229,7 +226,8 @@ app.use("*", (req, res) => {
 //全局捕获
 app.use((err, req, res, next) => {
   // 判断Redis会话存储类异常
-  if (err.message.includes('Redis') || err.message.includes('timeout')) {
+  const errorMessage = String(err && err.message || '');
+  if (errorMessage.includes('Redis') || errorMessage.includes('timeout')) {
     // 直接渲染静态错误页面，不再执行CAS跳转逻辑
     logError("Redis会话存储异常", err, {
       method: req.method,
@@ -237,7 +235,7 @@ app.use((err, req, res, next) => {
       query: req.query,
       ip: req.ip,
     });
-    return res.status(500).render(error, {
+    return res.status(500).render("error", {
       title: "系统错误",
       message: "会话存储异常，请稍后再试。",
     });
