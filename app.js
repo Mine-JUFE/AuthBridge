@@ -157,6 +157,10 @@ app.use((req, res, next) => {
   );
   next();
 });
+// Redis客户端配置超时
+const redisClient = new Redis({ commandTimeout: 2000 });
+const store = new RedisStore({ client: redisClient });
+
 
 // Session配置
 const sessionCookieSecureMode = String(process.env.SESSION_COOKIE_SECURE || "").trim().toLowerCase();
@@ -218,6 +222,28 @@ app.use(config.appBasePath, express.static(path.join(__dirname, "public")));
 // 路由
 app.use(config.appBasePath, routes);
 
+// 404处理
+app.use("*", (req, res) => {
+  res.status(404).render("404.ejs");
+});
+//全局捕获
+app.use((err, req, res, next) => {
+  // 判断Redis会话存储类异常
+  if (err.message.includes('Redis') || err.message.includes('timeout')) {
+    // 直接渲染静态错误页面，不再执行CAS跳转逻辑
+    logError("Redis会话存储异常", err, {
+      method: req.method,
+      path: req.originalUrl,
+      query: req.query,
+      ip: req.ip,
+    });
+    return res.status(500).render(error, {
+      title: "系统错误",
+      message: "会话存储异常，请稍后再试。",
+    });
+  }
+  next(err);
+});
 // 错误处理中间件
 app.use((err, req, res, next) => {
   const status = Number(err && err.status) || 500;
@@ -239,10 +265,4 @@ app.use((err, req, res, next) => {
 
   return res.status(status).json(payload);
 });
-
-// 404处理
-app.use("*", (req, res) => {
-  res.status(404).render("404.ejs");
-});
-
 module.exports = app;
