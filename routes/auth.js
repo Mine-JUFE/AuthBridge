@@ -156,6 +156,71 @@ function normalizeHttpUrl(input) {
   }
 }
 
+function safeDecodeUriComponent(input, rounds = 4) {
+  let value = String(input || '');
+  for (let i = 0; i < rounds; i += 1) {
+    try {
+      const decoded = decodeURIComponent(value);
+      if (decoded === value) {
+        break;
+      }
+      value = decoded;
+    } catch (_error) {
+      break;
+    }
+  }
+  return value;
+}
+
+function normalizePathname(input) {
+  const raw = String(input || '').trim();
+  if (!raw) {
+    return '/';
+  }
+  return raw.replace(/\/+$/, '') || '/';
+}
+
+function isRecursiveCallbackRedirect(callbackUrl) {
+  const normalizedCallback = normalizeHttpUrl(callbackUrl);
+  if (!normalizedCallback) {
+    return false;
+  }
+
+  let callbackObj;
+  try {
+    callbackObj = new URL(normalizedCallback);
+  } catch (_error) {
+    return false;
+  }
+
+  const callbackPath = normalizePathname(callbackObj.pathname);
+  const redirectRaw = callbackObj.searchParams.get('redirect');
+  if (!redirectRaw) {
+    return false;
+  }
+
+  const redirectDecoded = safeDecodeUriComponent(redirectRaw);
+  const redirectTrimmed = String(redirectDecoded || '').trim();
+  if (!redirectTrimmed) {
+    return false;
+  }
+
+  // 相对路径：/api/auth/callback?... 直接判定为回调递归
+  if (redirectTrimmed.startsWith('/')) {
+    const redirectPath = normalizePathname(redirectTrimmed.split('?')[0]);
+    return redirectPath === callbackPath;
+  }
+
+  // 绝对路径：https://xk.../api/auth/callback?... 判定同路径递归
+  try {
+    const redirectUrl = new URL(redirectTrimmed);
+    const redirectPath = normalizePathname(redirectUrl.pathname);
+    return redirectPath === callbackPath;
+  } catch (_error) {
+    return false;
+  }
+}
+
 function isWhitelistedUrl(targetUrl, whitelist) {
   const normalizedTarget = normalizeHttpUrl(targetUrl);
   if (!normalizedTarget) {
@@ -588,6 +653,13 @@ router.get('/login', safeAsync(async (req, res) => {
     }
 
     if (callback) {
+      if (isRecursiveCallbackRedirect(callback)) {
+        return res.status(400).render('error', {
+          title: '回调参数错误',
+          message: 'callback 中的 redirect 指向回调地址本身，检测到循环跳转风险，请改为最终业务页面路径（如 /about）'
+        });
+      }
+
       if (!isAllowedCallbackForApp(appid, callback)) {
         return res.status(400).render('error', {
           title: '回调地址未授权',
