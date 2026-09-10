@@ -38,7 +38,8 @@
 			"opsLocation": "Deployment: Jiangxi University of Finance and Economics intranet server",
 			"repoTitle": "Project Repository",
 			"repoLabel": "Repository:",
-			"contact": "If you have suggestions or feedback about AuthBridge, feel free to contact us via the channels above."
+			"contact": "If you have suggestions or feedback about AuthBridge, feel free to contact us via the channels above.",
+			"attention": "Note: The original developer has exited the team, and only minimal security updates are guaranteed. No maintenance or technical support is promised. The current maintenance team is Mine-JUFE. For any issues, please contact us through the provided channels."
 		},
 		"content": {
 			"intro": "AuthBridge is a lightweight authentication proxy that bridges CAS and downstream applications and issues verifiable JWTs.",

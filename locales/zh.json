@@ -38,7 +38,8 @@
       "opsLocation": "部署位置：江西财经大学校内服务器",
       "repoTitle": "项目地址",
       "repoLabel": "项目地址：",
-      "contact": "如果您对 AuthBridge 有任何建议或意见，欢迎通过上述联系方式与我们联系！"
+      "contact": "如果您对 AuthBridge 有任何建议或意见，欢迎通过上述联系方式与我们联系！",
+      "attention": "注意：开发者目前已经退出部门，仅保证最低的安全更新，不承诺提供任何维护或技术支持。目前维护团队为 Mine-JUFE 团队，若有任何问题请通过上述联系方式与我们联系。"
     },
     "content": {
       "intro": "AuthBridge 是一个轻量的认证代理服务，用于衔接 CAS 与下游应用，并签发可验证的 JWT。",
