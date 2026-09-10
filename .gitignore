@@ -26,3 +26,4 @@ secret.json
 secrets.json
 keys/
 applist.json
+public/scripts/debug.js

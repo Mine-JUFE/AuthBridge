@@ -44,7 +44,8 @@
         border-radius: 3px;
     }
     .token-scroll::-webkit-scrollbar-thumb:hover {
-        background: color-mix(in oklab, var(--colors-light-primary) 80%, black);
+        background: var(--colors-light-primary);
+        filter: brightness(0.82);
     }
 
     /* 高对比度复制按钮（固定宽度，避免变形） */
@@ -64,7 +65,8 @@
         text-align: center; /* 文字居中，保持宽度稳定 */
     }
     .copy-btn:hover {
-        background-color: color-mix(in oklab, var(--colors-light-primary) 90%, black);
+        background-color: var(--colors-light-primary);
+        filter: brightness(0.92);
         transform: translateY(-1px);
     }
     .copy-btn.success {

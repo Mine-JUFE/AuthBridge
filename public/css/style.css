@@ -106,5 +106,25 @@ body {
   opacity: 0.75;
 }
 .incontext-link {
-  color: color-mix(in oklab, var(--colors-light-primary) var(--un-text-opacity), transparent) !important;
+  color: var(--colors-light-primary) !important;
+}
+
+@supports (color: color-mix(in oklab, white, black)) {
+  .incontext-link {
+    color: color-mix(in oklab, var(--colors-light-primary) var(--un-text-opacity), transparent) !important;
+  }
+}
+
+.primary-action-button {
+  background-color: var(--colors-light-primary);
+}
+
+@supports (background-color: color-mix(in oklab, white, black)) {
+  .primary-action-button {
+    background-color: color-mix(
+      in oklab,
+      var(--colors-light-primary) var(--un-text-opacity),
+      transparent
+    );
+  }
 }
