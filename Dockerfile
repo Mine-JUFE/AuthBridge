@@ -17,6 +17,9 @@ FROM node:22-alpine
 
 WORKDIR /app
 
+ARG COMMIT_HASH=null
+ENV COMMIT_HASH=${COMMIT_HASH}
+
 # 安装生产依赖
 COPY package*.json ./
 RUN npm ci --only=production
@@ -38,4 +41,4 @@ COPY --from=builder /app/app.js     ./
 USER node
 
 EXPOSE 3000
-CMD ["node", "server.js"]
+ENTRYPOINT ["node", "server.js"]
