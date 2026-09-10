@@ -1,5 +1,7 @@
 # AuthBridge
 
+> 设计和实现上的一些小思考：https://www.komonmc.cn/archives/about-ab
+
 AuthBridge 是一个面向 CAS 单点登录场景的认证桥接服务：
 - 作为 CAS Service 接收并校验 ticket
 - 基于应用维度生成 JWT（AES 或 ECC）
