@@ -22,12 +22,17 @@
               target="_blank"
               class="hover:underline incontext-link"
             >Mine-JUFE Team</a>
+            <span class="mx-1">·</span>
+            <%= t('footer.commitLabel') %> <%= commitHash || 'null' %>
           <% } else { %>
             <a
               href="https://github.com/Mine-JUFE"
               target="_blank"
               class="hover:underline incontext-link"
-            >Mine-JUFE 团队 </a><%= t('footer.maintainedBySuffix') %>
+            >Mine-JUFE 团队</a>
+            <%= t('footer.maintainedBySuffix') %>
+            <span class="mx-1">·</span>
+            <%= t('footer.commitLabel') %> <%= commitHash || 'null' %>
           <% } %>
         </p>
       </div>

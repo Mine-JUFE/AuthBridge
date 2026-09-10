@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const session = require("express-session");
 const connectRedis = require("connect-redis");
+const { execSync } = require("child_process");
 const { createClient } = require("redis");
 const path = require("path");
 const cookieParser = require('cookie-parser');
@@ -24,6 +25,27 @@ function parseBooleanEnv(input, defaultValue = false) {
 
   const normalized = String(input).trim().toLowerCase();
   return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+function resolveCommitHash() {
+  const envCommit = [process.env.COMMIT_HASH, process.env.GIT_COMMIT, process.env.GITHUB_SHA]
+    .map((value) => String(value || "").trim())
+    .find(Boolean);
+
+  if (envCommit) {
+    return envCommit.slice(0, 7);
+  }
+
+  try {
+    const commitHash = execSync("git rev-parse --short HEAD", {
+      cwd: __dirname,
+      stdio: ["ignore", "pipe", "ignore"],
+    }).toString().trim();
+
+    return commitHash || null;
+  } catch (_error) {
+    return null;
+  }
 }
 
 function createSessionStore() {
@@ -106,6 +128,7 @@ if (process.env.DEBUG_PROXY_HEADERS === "true") {
 // 全局变量
 app.locals.basePath = config.appBasePath;
 app.locals.withBasePath = config.withBasePath;
+app.locals.commitHash = resolveCommitHash();
 
 
 i18next

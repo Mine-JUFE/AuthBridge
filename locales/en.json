@@ -122,7 +122,8 @@
 		"disclaimer2": "It only provides CAS authentication proxy and JWT token generation services.",
 		"maintainedBy": "Developed and maintained by",
 		"maintainedByPrefix": "Developed and maintained by",
-		"maintainedBySuffix": ""
+		"maintainedBySuffix": "",
+		"commitLabel": "Commit"
 	}
 }
 

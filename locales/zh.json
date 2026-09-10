@@ -122,6 +122,7 @@
     "disclaimer2": "仅提供 CAS 认证代理和 JWT 令牌生成服务。",
     "maintainedBy": "开发与维护",
     "maintainedByPrefix": "",
-    "maintainedBySuffix": "提供开发与维护"
+    "maintainedBySuffix": "提供开发与维护",
+    "commitLabel": "提交号"
   }
 }
